@@ -131,6 +131,7 @@ func (m timeMixin) fmtTime(t time.Time) string {
 }
 
 type formatMixin struct {
+	//lint:ignore SA5008 "choice" tag is intentionally duplicated
 	Format string `long:"format" default:"text" choice:"text" choice:"json" choice:"yaml"`
 }
 

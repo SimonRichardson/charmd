@@ -12,13 +12,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	"github.com/canonical/tc"
 
 	"github.com/SimonRichardson/charmd/client"
 	"github.com/SimonRichardson/charmd/internals/cli"
 )
 
-func Test(t *testing.T) { TestingT(t) }
+func Test(t *testing.T) { tc.InternalTestingT(t) }
 
 type CharmdSuite struct {
 	stdout, stderr *bytes.Buffer
@@ -28,26 +28,26 @@ type CharmdSuite struct {
 	oldConfig      string
 }
 
-var _ = Suite(&CharmdSuite{})
+var _ = tc.InternalSuite(&CharmdSuite{})
 
-func (s *CharmdSuite) SetUpTest(c *C) {
+func (s *CharmdSuite) SetUpTest(c *tc.C) {
 	s.stdout, s.stderr = &bytes.Buffer{}, &bytes.Buffer{}
 	cli.Stdout, cli.Stderr = s.stdout, s.stderr
 	s.oldConfig = os.Getenv("XDG_CONFIG_HOME")
 	config := c.MkDir()
-	c.Assert(os.Setenv("XDG_CONFIG_HOME", config), IsNil)
+	c.Assert(os.Setenv("XDG_CONFIG_HOME", config), tc.IsNil)
 	s.cliStatePath = filepath.Join(config, "charmd", "cli.json")
 	s.socket = filepath.Join(c.MkDir(), ".charmd.socket")
 	cli.SetNoticeTestClient(nil, s.socket)
 }
 
-func (s *CharmdSuite) TearDownTest(c *C) {
+func (s *CharmdSuite) TearDownTest(c *tc.C) {
 	if s.server != nil {
 		s.server.Close()
 		s.server = nil
 	}
 	cli.Stdout, cli.Stderr = os.Stdout, os.Stderr
-	c.Assert(os.Setenv("XDG_CONFIG_HOME", s.oldConfig), IsNil)
+	c.Assert(os.Setenv("XDG_CONFIG_HOME", s.oldConfig), tc.IsNil)
 }
 
 func (s *CharmdSuite) Stdout() string { return s.stdout.String() }
@@ -63,19 +63,19 @@ func (s *CharmdSuite) RedirectClientToTestServer(handler func(http.ResponseWrite
 	cli.SetNoticeTestClient(api, s.socket)
 }
 
-func (s *CharmdSuite) readCLIState(c *C) map[string]any {
+func (s *CharmdSuite) readCLIState(c *tc.C) map[string]any {
 	data, err := os.ReadFile(s.cliStatePath)
-	c.Assert(err, IsNil)
+	c.Assert(err, tc.IsNil)
 	var all struct {
 		Charmd map[string]map[string]any `json:"charmd"`
 	}
-	c.Assert(json.Unmarshal(data, &all), IsNil)
+	c.Assert(json.Unmarshal(data, &all), tc.IsNil)
 	return all.Charmd[s.socket]
 }
 
-func (s *CharmdSuite) writeCLIState(c *C, state map[string]any) {
+func (s *CharmdSuite) writeCLIState(c *tc.C, state map[string]any) {
 	data, err := json.Marshal(map[string]any{"charmd": map[string]any{s.socket: state}})
-	c.Assert(err, IsNil)
-	c.Assert(os.MkdirAll(filepath.Dir(s.cliStatePath), 0700), IsNil)
-	c.Assert(os.WriteFile(s.cliStatePath, data, 0600), IsNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(os.MkdirAll(filepath.Dir(s.cliStatePath), 0700), tc.IsNil)
+	c.Assert(os.WriteFile(s.cliStatePath, data, 0600), tc.IsNil)
 }

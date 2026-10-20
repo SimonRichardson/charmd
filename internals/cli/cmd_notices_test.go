@@ -23,16 +23,16 @@ import (
 	"os"
 	"time"
 
-	. "gopkg.in/check.v1"
+	"github.com/canonical/tc"
 
 	"github.com/SimonRichardson/charmd/internals/cli"
 )
 
-func (s *CharmdSuite) TestNotices(c *C) {
+func (s *CharmdSuite) TestNotices(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices")
-		c.Check(r.URL.Query(), DeepEquals, url.Values{})
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices")
+		c.Check(r.URL.Query(), tc.DeepEquals, url.Values{})
 
 		fmt.Fprint(w, `{
 			"type": "sync",
@@ -60,23 +60,23 @@ func (s *CharmdSuite) TestNotices(c *C) {
 	})
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices", "--abs-time"})
-	c.Assert(err, IsNil)
-	c.Check(rest, HasLen, 0)
-	c.Check(s.Stdout(), Equals, `
+	c.Assert(err, tc.IsNil)
+	c.Check(rest, tc.HasLen, 0)
+	c.Check(s.Stdout(), tc.Equals, `
 ID   User    Type     Key    First                 Repeated              Occurrences
 1    1000    custom   a.b/c  2023-09-05T17:18:00Z  2023-09-05T18:18:00Z  3
 2    public  warning  Ware!  2023-09-06T17:18:00Z  2023-09-06T18:18:00Z  1
 `[1:])
-	c.Check(s.Stderr(), Equals, "")
+	c.Check(s.Stderr(), tc.Equals, "")
 
 	cliState := s.readNoticesCLIState(c)
-	c.Check(cliState, DeepEquals, map[string]any{
+	c.Check(cliState, tc.DeepEquals, map[string]any{
 		"notices-last-listed": "2023-09-06T18:18:00Z",
 		"notices-last-okayed": "0001-01-01T00:00:00Z",
 	})
 }
 
-func (s *CharmdSuite) readNoticesCLIState(c *C) map[string]any {
+func (s *CharmdSuite) readNoticesCLIState(c *tc.C) map[string]any {
 	fullCLIState := s.readCLIState(c)
 	cliState := map[string]any{
 		"notices-last-listed": fullCLIState["notices-last-listed"],
@@ -85,11 +85,11 @@ func (s *CharmdSuite) readNoticesCLIState(c *C) map[string]any {
 	return cliState
 }
 
-func (s *CharmdSuite) TestNoticesFiltersUsers(c *C) {
+func (s *CharmdSuite) TestNoticesFiltersUsers(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices")
-		c.Check(r.URL.Query(), DeepEquals, url.Values{
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices")
+		c.Check(r.URL.Query(), tc.DeepEquals, url.Values{
 			"users": {"all"},
 			"types": {"custom", "warning"},
 			"keys":  {"a.b/c"},
@@ -113,26 +113,26 @@ func (s *CharmdSuite) TestNoticesFiltersUsers(c *C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{
 		"notices", "--abs-time", "--users", "all", "--type", "custom", "--key", "a.b/c", "--type", "warning"})
-	c.Assert(err, IsNil)
-	c.Check(rest, HasLen, 0)
-	c.Check(s.Stdout(), Equals, `
+	c.Assert(err, tc.IsNil)
+	c.Check(rest, tc.HasLen, 0)
+	c.Check(s.Stdout(), tc.Equals, `
 ID   User  Type    Key    First                 Repeated              Occurrences
 1    1000  custom  a.b/c  2023-09-05T17:18:00Z  2023-09-05T18:18:00Z  3
 `[1:])
-	c.Check(s.Stderr(), Equals, "")
+	c.Check(s.Stderr(), tc.Equals, "")
 
 	cliState := s.readNoticesCLIState(c)
-	c.Check(cliState, DeepEquals, map[string]any{
+	c.Check(cliState, tc.DeepEquals, map[string]any{
 		"notices-last-listed": "2023-09-05T18:18:00Z",
 		"notices-last-okayed": "0001-01-01T00:00:00Z",
 	})
 }
 
-func (s *CharmdSuite) TestNoticesFiltersUID(c *C) {
+func (s *CharmdSuite) TestNoticesFiltersUID(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices")
-		c.Check(r.URL.Query(), DeepEquals, url.Values{
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices")
+		c.Check(r.URL.Query(), tc.DeepEquals, url.Values{
 			"user-id": {"1000"},
 			"types":   {"custom", "warning"},
 			"keys":    {"a.b/c"},
@@ -156,26 +156,26 @@ func (s *CharmdSuite) TestNoticesFiltersUID(c *C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{
 		"notices", "--abs-time", "--uid", "1000", "--type", "custom", "--key", "a.b/c", "--type", "warning"})
-	c.Assert(err, IsNil)
-	c.Check(rest, HasLen, 0)
-	c.Check(s.Stdout(), Equals, `
+	c.Assert(err, tc.IsNil)
+	c.Check(rest, tc.HasLen, 0)
+	c.Check(s.Stdout(), tc.Equals, `
 ID   User  Type    Key    First                 Repeated              Occurrences
 1    1000  custom  a.b/c  2023-09-05T17:18:00Z  2023-09-05T18:18:00Z  3
 `[1:])
-	c.Check(s.Stderr(), Equals, "")
+	c.Check(s.Stderr(), tc.Equals, "")
 
 	cliState := s.readNoticesCLIState(c)
-	c.Check(cliState, DeepEquals, map[string]any{
+	c.Check(cliState, tc.DeepEquals, map[string]any{
 		"notices-last-listed": "2023-09-05T18:18:00Z",
 		"notices-last-okayed": "0001-01-01T00:00:00Z",
 	})
 }
 
-func (s *CharmdSuite) TestNoticesAfter(c *C) {
+func (s *CharmdSuite) TestNoticesAfter(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices")
-		c.Check(r.URL.Query(), DeepEquals, url.Values{
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices")
+		c.Check(r.URL.Query(), tc.DeepEquals, url.Values{
 			"after": {"2023-08-04T01:02:03Z"}, // from "notices-last-okayed" in notices.json
 		})
 
@@ -201,26 +201,26 @@ func (s *CharmdSuite) TestNoticesAfter(c *C) {
 	})
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices", "--abs-time"})
-	c.Assert(err, IsNil)
-	c.Check(rest, HasLen, 0)
-	c.Check(s.Stdout(), Equals, `
+	c.Assert(err, tc.IsNil)
+	c.Check(rest, tc.HasLen, 0)
+	c.Check(s.Stdout(), tc.Equals, `
 ID   User  Type    Key    First                 Repeated              Occurrences
 1    1000  custom  a.b/c  2023-09-05T17:18:00Z  2023-09-07T18:18:00Z  3
 `[1:])
-	c.Check(s.Stderr(), Equals, "")
+	c.Check(s.Stderr(), tc.Equals, "")
 
 	cliState := s.readNoticesCLIState(c)
-	c.Check(cliState, DeepEquals, map[string]any{
+	c.Check(cliState, tc.DeepEquals, map[string]any{
 		"notices-last-listed": "2023-09-07T18:18:00Z",
 		"notices-last-okayed": "2023-08-04T01:02:03Z",
 	})
 }
 
-func (s *CharmdSuite) TestNoticesNoNotices(c *C) {
+func (s *CharmdSuite) TestNoticesNoNotices(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices")
-		c.Check(r.URL.Query(), DeepEquals, url.Values{})
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices")
+		c.Check(r.URL.Query(), tc.DeepEquals, url.Values{})
 		fmt.Fprint(w, `{
 			"type": "sync",
 			"status-code": 200,
@@ -228,21 +228,21 @@ func (s *CharmdSuite) TestNoticesNoNotices(c *C) {
 	})
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices"})
-	c.Assert(err, IsNil)
-	c.Check(rest, HasLen, 0)
-	c.Check(s.Stdout(), Equals, "")
-	c.Check(s.Stderr(), Equals, "No matching notices.\n")
+	c.Assert(err, tc.IsNil)
+	c.Check(rest, tc.HasLen, 0)
+	c.Check(s.Stdout(), tc.Equals, "")
+	c.Check(s.Stderr(), tc.Equals, "No matching notices.\n")
 
 	// Shouldn't have updated cli.json
 	_, err = os.Stat(s.cliStatePath)
-	c.Assert(errors.Is(err, fs.ErrNotExist), Equals, true)
+	c.Assert(errors.Is(err, fs.ErrNotExist), tc.Equals, true)
 }
 
-func (s *CharmdSuite) TestNoticesTimeout(c *C) {
+func (s *CharmdSuite) TestNoticesTimeout(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices")
-		c.Check(r.URL.Query(), DeepEquals, url.Values{"timeout": {"1s"}})
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices")
+		c.Check(r.URL.Query(), tc.DeepEquals, url.Values{"timeout": {"1s"}})
 
 		fmt.Fprint(w, `{
 			"type": "sync",
@@ -262,26 +262,26 @@ func (s *CharmdSuite) TestNoticesTimeout(c *C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{
 		"notices", "--abs-time", "--timeout", "1s"})
-	c.Assert(err, IsNil)
-	c.Check(rest, HasLen, 0)
-	c.Check(s.Stdout(), Equals, `
+	c.Assert(err, tc.IsNil)
+	c.Check(rest, tc.HasLen, 0)
+	c.Check(s.Stdout(), tc.Equals, `
 ID   User  Type    Key    First                 Repeated              Occurrences
 1    1000  custom  a.b/c  2023-09-05T17:18:00Z  2023-09-05T18:18:00Z  3
 `[1:])
-	c.Check(s.Stderr(), Equals, "")
+	c.Check(s.Stderr(), tc.Equals, "")
 
 	cliState := s.readNoticesCLIState(c)
-	c.Check(cliState, DeepEquals, map[string]any{
+	c.Check(cliState, tc.DeepEquals, map[string]any{
 		"notices-last-listed": "2023-09-05T18:18:00Z",
 		"notices-last-okayed": "0001-01-01T00:00:00Z",
 	})
 }
 
-func (s *CharmdSuite) TestNoticesNoNoticesTimeout(c *C) {
+func (s *CharmdSuite) TestNoticesNoNoticesTimeout(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices")
-		c.Check(r.URL.Query(), DeepEquals, url.Values{"timeout": {"1s"}})
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices")
+		c.Check(r.URL.Query(), tc.DeepEquals, url.Values{"timeout": {"1s"}})
 		fmt.Fprint(w, `{
 			"type": "sync",
 			"status-code": 200,
@@ -289,21 +289,21 @@ func (s *CharmdSuite) TestNoticesNoNoticesTimeout(c *C) {
 	})
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices", "--timeout", "1s"})
-	c.Assert(err, IsNil)
-	c.Check(rest, HasLen, 0)
-	c.Check(s.Stdout(), Equals, "")
-	c.Check(s.Stderr(), Equals, "No matching notices after waiting 1s.\n")
+	c.Assert(err, tc.IsNil)
+	c.Check(rest, tc.HasLen, 0)
+	c.Check(s.Stdout(), tc.Equals, "")
+	c.Check(s.Stderr(), tc.Equals, "No matching notices after waiting 1s.\n")
 
 	// Shouldn't have updated cli.json
 	_, err = os.Stat(s.cliStatePath)
-	c.Assert(errors.Is(err, fs.ErrNotExist), Equals, true)
+	c.Assert(errors.Is(err, fs.ErrNotExist), tc.Equals, true)
 }
 
-func (s *CharmdSuite) TestNoticesJSON(c *C) {
+func (s *CharmdSuite) TestNoticesJSON(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices")
-		c.Check(r.URL.Query(), DeepEquals, url.Values{})
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices")
+		c.Check(r.URL.Query(), tc.DeepEquals, url.Values{})
 		fmt.Fprint(w, `{
 			"type": "sync",
 			"status-code": 200,
@@ -324,23 +324,23 @@ func (s *CharmdSuite) TestNoticesJSON(c *C) {
 	})
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices", "--format", "json"})
-	c.Assert(err, IsNil)
-	c.Check(rest, HasLen, 0)
-	c.Check(s.Stdout(), Equals, `{"notices":[{"id":"1","user-id":1000,"type":"custom","key":"a.b/c","first-occurred":"2023-09-05T17:18:00Z","last-occurred":"2023-09-05T19:18:00Z","last-repeated":"2023-09-05T18:18:00Z","occurrences":3,"last-data":{"k":"v"},"repeat-after":"1h0m0s","expire-after":"168h0m0s"}]}`+"\n")
-	c.Check(s.Stderr(), Equals, "")
+	c.Assert(err, tc.IsNil)
+	c.Check(rest, tc.HasLen, 0)
+	c.Check(s.Stdout(), tc.Equals, `{"notices":[{"id":"1","user-id":1000,"type":"custom","key":"a.b/c","first-occurred":"2023-09-05T17:18:00Z","last-occurred":"2023-09-05T19:18:00Z","last-repeated":"2023-09-05T18:18:00Z","occurrences":3,"last-data":{"k":"v"},"repeat-after":"1h0m0s","expire-after":"168h0m0s"}]}`+"\n")
+	c.Check(s.Stderr(), tc.Equals, "")
 
 	cliState := s.readNoticesCLIState(c)
-	c.Check(cliState, DeepEquals, map[string]any{
+	c.Check(cliState, tc.DeepEquals, map[string]any{
 		"notices-last-listed": "2023-09-05T18:18:00Z",
 		"notices-last-okayed": "0001-01-01T00:00:00Z",
 	})
 }
 
-func (s *CharmdSuite) TestNoticesYAML(c *C) {
+func (s *CharmdSuite) TestNoticesYAML(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices")
-		c.Check(r.URL.Query(), DeepEquals, url.Values{})
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices")
+		c.Check(r.URL.Query(), tc.DeepEquals, url.Values{})
 		fmt.Fprint(w, `{
 			"type": "sync",
 			"status-code": 200,
@@ -361,9 +361,9 @@ func (s *CharmdSuite) TestNoticesYAML(c *C) {
 	})
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices", "--format", "yaml"})
-	c.Assert(err, IsNil)
-	c.Check(rest, HasLen, 0)
-	c.Check(s.Stdout(), Equals, `
+	c.Assert(err, tc.IsNil)
+	c.Check(rest, tc.HasLen, 0)
+	c.Check(s.Stdout(), tc.Equals, `
 notices:
     - id: "1"
       user-id: 1000
@@ -378,44 +378,44 @@ notices:
       repeat-after: 1h0m0s
       expire-after: 168h0m0s
 `[1:])
-	c.Check(s.Stderr(), Equals, "")
+	c.Check(s.Stderr(), tc.Equals, "")
 
 	cliState := s.readNoticesCLIState(c)
-	c.Check(cliState, DeepEquals, map[string]any{
+	c.Check(cliState, tc.DeepEquals, map[string]any{
 		"notices-last-listed": "2023-09-05T18:18:00Z",
 		"notices-last-okayed": "0001-01-01T00:00:00Z",
 	})
 }
 
-func (s *CharmdSuite) TestNoNoticesJSON(c *C) {
+func (s *CharmdSuite) TestNoNoticesJSON(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices")
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices")
 		fmt.Fprint(w, `{"type": "sync", "status-code": 200, "result": []}`)
 	})
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices", "--format", "json"})
-	c.Assert(err, IsNil)
-	c.Check(rest, HasLen, 0)
-	c.Check(s.Stdout(), Equals, `{"notices":[]}`+"\n")
-	c.Check(s.Stderr(), Equals, "")
+	c.Assert(err, tc.IsNil)
+	c.Check(rest, tc.HasLen, 0)
+	c.Check(s.Stdout(), tc.Equals, `{"notices":[]}`+"\n")
+	c.Check(s.Stderr(), tc.Equals, "")
 }
 
-func (s *CharmdSuite) TestNoNoticesYAML(c *C) {
+func (s *CharmdSuite) TestNoNoticesYAML(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices")
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices")
 		fmt.Fprint(w, `{"type": "sync", "status-code": 200, "result": []}`)
 	})
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices", "--format", "yaml"})
-	c.Assert(err, IsNil)
-	c.Check(rest, HasLen, 0)
-	c.Check(s.Stdout(), Equals, "notices: []\n")
-	c.Check(s.Stderr(), Equals, "")
+	c.Assert(err, tc.IsNil)
+	c.Check(rest, tc.HasLen, 0)
+	c.Check(s.Stdout(), tc.Equals, "notices: []\n")
+	c.Check(s.Stderr(), tc.Equals, "")
 }
 
-func (s *CharmdSuite) TestNoticesInvalidFormat(c *C) {
+func (s *CharmdSuite) TestNoticesInvalidFormat(c *tc.C) {
 	_, err := cli.ParserForTest().ParseArgs([]string{"notices", "--format", "foobar"})
-	c.Assert(err, ErrorMatches, "Invalid value.*for option.*--format.*")
+	c.Assert(err, tc.ErrorMatches, "Invalid value.*for option.*--format.*")
 }

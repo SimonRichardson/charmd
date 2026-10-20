@@ -13,12 +13,12 @@ import (
 	"testing"
 	"time"
 
-	. "gopkg.in/check.v1"
+	"github.com/canonical/tc"
 
 	"github.com/SimonRichardson/charmd/client"
 )
 
-func Test(t *testing.T) { TestingT(t) }
+func Test(t *testing.T) { tc.InternalTestingT(t) }
 
 // clientSuite retains the request and response parts of Charmd's test fixture.
 type clientSuite struct {
@@ -29,12 +29,12 @@ type clientSuite struct {
 	restore func()
 }
 
-var _ = Suite(&clientSuite{})
+var _ = tc.InternalSuite(&clientSuite{})
 
-func (cs *clientSuite) SetUpTest(c *C) {
+func (cs *clientSuite) SetUpTest(c *tc.C) {
 	var err error
 	cs.cli, err = client.New(nil)
-	c.Assert(err, IsNil)
+	c.Assert(err, tc.IsNil)
 	cs.cli.SetDoer(cs)
 	cs.err = nil
 	cs.req = nil
@@ -42,7 +42,7 @@ func (cs *clientSuite) SetUpTest(c *C) {
 	cs.restore = client.FakeDoRetry(time.Millisecond, 10*time.Millisecond)
 }
 
-func (cs *clientSuite) TearDownTest(c *C) { cs.restore() }
+func (cs *clientSuite) TearDownTest(c *tc.C) { cs.restore() }
 
 func (cs *clientSuite) Do(req *http.Request) (*http.Response, error) {
 	cs.req = req

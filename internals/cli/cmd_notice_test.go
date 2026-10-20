@@ -19,15 +19,15 @@ import (
 	"net/http"
 	"net/url"
 
-	. "gopkg.in/check.v1"
+	"github.com/canonical/tc"
 
 	"github.com/SimonRichardson/charmd/internals/cli"
 )
 
-func (s *CharmdSuite) TestNoticeID(c *C) {
+func (s *CharmdSuite) TestNoticeID(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices/123")
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices/123")
 
 		fmt.Fprint(w, `{
 			"type": "sync",
@@ -49,9 +49,9 @@ func (s *CharmdSuite) TestNoticeID(c *C) {
 	})
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notice", "123"})
-	c.Assert(err, IsNil)
-	c.Check(rest, HasLen, 0)
-	c.Check(s.Stdout(), Equals, `
+	c.Assert(err, tc.IsNil)
+	c.Check(rest, tc.HasLen, 0)
+	c.Check(s.Stdout(), tc.Equals, `
 id: "123"
 user-id: 1000
 type: custom
@@ -65,13 +65,13 @@ last-data:
 repeat-after: 1h0m0s
 expire-after: 168h0m0s
 `[1:])
-	c.Check(s.Stderr(), Equals, "")
+	c.Check(s.Stderr(), tc.Equals, "")
 }
 
-func (s *CharmdSuite) TestNoticeJSON(c *C) {
+func (s *CharmdSuite) TestNoticeJSON(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices/123")
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices/123")
 		fmt.Fprint(w, `{
 			"type": "sync",
 			"status-code": 200,
@@ -92,16 +92,16 @@ func (s *CharmdSuite) TestNoticeJSON(c *C) {
 	})
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notice", "--format", "json", "123"})
-	c.Assert(err, IsNil)
-	c.Check(rest, HasLen, 0)
-	c.Check(s.Stdout(), Equals, `{"id":"123","user-id":1000,"type":"custom","key":"a.b/c","first-occurred":"2023-09-05T17:18:00Z","last-occurred":"2023-09-05T19:18:00Z","last-repeated":"2023-09-05T18:18:00Z","occurrences":1,"last-data":{"k":"v"},"repeat-after":"1h0m0s","expire-after":"168h0m0s"}`+"\n")
-	c.Check(s.Stderr(), Equals, "")
+	c.Assert(err, tc.IsNil)
+	c.Check(rest, tc.HasLen, 0)
+	c.Check(s.Stdout(), tc.Equals, `{"id":"123","user-id":1000,"type":"custom","key":"a.b/c","first-occurred":"2023-09-05T17:18:00Z","last-occurred":"2023-09-05T19:18:00Z","last-repeated":"2023-09-05T18:18:00Z","occurrences":1,"last-data":{"k":"v"},"repeat-after":"1h0m0s","expire-after":"168h0m0s"}`+"\n")
+	c.Check(s.Stderr(), tc.Equals, "")
 }
 
-func (s *CharmdSuite) TestNoticeYAML(c *C) {
+func (s *CharmdSuite) TestNoticeYAML(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices/123")
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices/123")
 		fmt.Fprint(w, `{
 			"type": "sync",
 			"status-code": 200,
@@ -122,9 +122,9 @@ func (s *CharmdSuite) TestNoticeYAML(c *C) {
 	})
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notice", "--format", "yaml", "123"})
-	c.Assert(err, IsNil)
-	c.Check(rest, HasLen, 0)
-	c.Check(s.Stdout(), Equals, `
+	c.Assert(err, tc.IsNil)
+	c.Check(rest, tc.HasLen, 0)
+	c.Check(s.Stdout(), tc.Equals, `
 id: "123"
 user-id: 1000
 type: custom
@@ -138,18 +138,18 @@ last-data:
 repeat-after: 1h0m0s
 expire-after: 168h0m0s
 `[1:])
-	c.Check(s.Stderr(), Equals, "")
+	c.Check(s.Stderr(), tc.Equals, "")
 }
 
-func (s *CharmdSuite) TestNoticeInvalidFormat(c *C) {
+func (s *CharmdSuite) TestNoticeInvalidFormat(c *tc.C) {
 	_, err := cli.ParserForTest().ParseArgs([]string{"notice", "--format", "foobar", "123"})
-	c.Assert(err, ErrorMatches, "Invalid value.*for option.*--format.*")
+	c.Assert(err, tc.ErrorMatches, "Invalid value.*for option.*--format.*")
 }
 
-func (s *CharmdSuite) TestNoticeIDNotFound(c *C) {
+func (s *CharmdSuite) TestNoticeIDNotFound(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices/123")
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices/123")
 
 		fmt.Fprint(w, `{
 			"type": "error",
@@ -161,16 +161,16 @@ func (s *CharmdSuite) TestNoticeIDNotFound(c *C) {
 	})
 
 	_, err := cli.ParserForTest().ParseArgs([]string{"notice", "123"})
-	c.Assert(err, ErrorMatches, `cannot find notice with ID "123"`)
-	c.Check(s.Stdout(), Equals, "")
-	c.Check(s.Stderr(), Equals, "")
+	c.Assert(err, tc.ErrorMatches, `cannot find notice with ID "123"`)
+	c.Check(s.Stdout(), tc.Equals, "")
+	c.Check(s.Stderr(), tc.Equals, "")
 }
 
-func (s *CharmdSuite) TestNoticeTypeKey(c *C) {
+func (s *CharmdSuite) TestNoticeTypeKey(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices")
-		c.Check(r.URL.Query(), DeepEquals, url.Values{
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices")
+		c.Check(r.URL.Query(), tc.DeepEquals, url.Values{
 			"types": {"custom"},
 			"keys":  {"a.b/c"},
 		})
@@ -192,9 +192,9 @@ func (s *CharmdSuite) TestNoticeTypeKey(c *C) {
 	})
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notice", "custom", "a.b/c"})
-	c.Assert(err, IsNil)
-	c.Check(rest, HasLen, 0)
-	c.Check(s.Stdout(), Equals, `
+	c.Assert(err, tc.IsNil)
+	c.Check(rest, tc.HasLen, 0)
+	c.Check(s.Stdout(), tc.Equals, `
 id: "123"
 user-id: null
 type: custom
@@ -204,14 +204,14 @@ last-occurred: 2023-09-05T19:18:00Z
 last-repeated: 2023-09-05T18:18:00Z
 occurrences: 1
 `[1:])
-	c.Check(s.Stderr(), Equals, "")
+	c.Check(s.Stderr(), tc.Equals, "")
 }
 
-func (s *CharmdSuite) TestNoticeTypeKeyUID(c *C) {
+func (s *CharmdSuite) TestNoticeTypeKeyUID(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices")
-		c.Check(r.URL.Query(), DeepEquals, url.Values{
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices")
+		c.Check(r.URL.Query(), tc.DeepEquals, url.Values{
 			"types":   {"custom"},
 			"keys":    {"a.b/c"},
 			"user-id": {"1001"},
@@ -234,9 +234,9 @@ func (s *CharmdSuite) TestNoticeTypeKeyUID(c *C) {
 	})
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notice", "--uid", "1001", "custom", "a.b/c"})
-	c.Assert(err, IsNil)
-	c.Check(rest, HasLen, 0)
-	c.Check(s.Stdout(), Equals, `
+	c.Assert(err, tc.IsNil)
+	c.Check(rest, tc.HasLen, 0)
+	c.Check(s.Stdout(), tc.Equals, `
 id: "123"
 user-id: 1001
 type: custom
@@ -246,14 +246,14 @@ last-occurred: 2023-09-05T19:18:00Z
 last-repeated: 2023-09-05T18:18:00Z
 occurrences: 1
 `[1:])
-	c.Check(s.Stderr(), Equals, "")
+	c.Check(s.Stderr(), tc.Equals, "")
 }
 
-func (s *CharmdSuite) TestNoticeTypeKeyNotFound(c *C) {
+func (s *CharmdSuite) TestNoticeTypeKeyNotFound(c *tc.C) {
 	s.RedirectClientToTestServer(func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, Equals, "GET")
-		c.Check(r.URL.Path, Equals, "/v1/notices")
-		c.Check(r.URL.Query(), DeepEquals, url.Values{
+		c.Check(r.Method, tc.Equals, "GET")
+		c.Check(r.URL.Path, tc.Equals, "/v1/notices")
+		c.Check(r.URL.Query(), tc.DeepEquals, url.Values{
 			"types": {"custom"},
 			"keys":  {"a.b/c"},
 		})
@@ -265,7 +265,7 @@ func (s *CharmdSuite) TestNoticeTypeKeyNotFound(c *C) {
 	})
 
 	_, err := cli.ParserForTest().ParseArgs([]string{"notice", "custom", "a.b/c"})
-	c.Assert(err, ErrorMatches, `cannot find custom notice with key "a.b/c"`)
-	c.Check(s.Stdout(), Equals, "")
-	c.Check(s.Stderr(), Equals, "")
+	c.Assert(err, tc.ErrorMatches, `cannot find custom notice with key "a.b/c"`)
+	c.Check(s.Stdout(), tc.Equals, "")
+	c.Check(s.Stderr(), tc.Equals, "")
 }

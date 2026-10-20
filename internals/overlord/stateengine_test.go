@@ -18,7 +18,7 @@ import (
 	"errors"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	"github.com/canonical/tc"
 
 	"github.com/SimonRichardson/charmd/internals/overlord"
 	"github.com/SimonRichardson/charmd/internals/overlord/state"
@@ -26,18 +26,18 @@ import (
 )
 
 func Test(t *testing.T) {
-	testutil.PrintGoroutineLeaks(t, TestingT)
+	testutil.PrintGoroutineLeaks(t, tc.InternalTestingT)
 }
 
 type stateEngineSuite struct{}
 
-var _ = Suite(&stateEngineSuite{})
+var _ = tc.InternalSuite(&stateEngineSuite{})
 
-func (ses *stateEngineSuite) TestNewAndState(c *C) {
+func (ses *stateEngineSuite) TestNewAndState(c *tc.C) {
 	s := state.New(nil)
 	se := overlord.NewStateEngine(s)
 
-	c.Check(se.State(), Equals, s)
+	c.Check(se.State(), tc.Equals, s)
 }
 
 type fakeManager struct {
@@ -66,7 +66,7 @@ func (fm *fakeManager) Wait() {
 
 var _ overlord.StateManager = (*fakeManager)(nil)
 
-func (ses *stateEngineSuite) TestStartUp(c *C) {
+func (ses *stateEngineSuite) TestStartUp(c *tc.C) {
 	s := state.New(nil)
 	se := overlord.NewStateEngine(s)
 
@@ -79,16 +79,16 @@ func (ses *stateEngineSuite) TestStartUp(c *C) {
 	se.AddManager(mgr2)
 
 	err := se.StartUp()
-	c.Assert(err, IsNil)
-	c.Check(calls, DeepEquals, []string{"startup:mgr1", "startup:mgr2"})
+	c.Assert(err, tc.IsNil)
+	c.Check(calls, tc.DeepEquals, []string{"startup:mgr1", "startup:mgr2"})
 
 	// noop
 	err = se.StartUp()
-	c.Assert(err, IsNil)
-	c.Check(calls, HasLen, 2)
+	c.Assert(err, tc.IsNil)
+	c.Check(calls, tc.HasLen, 2)
 }
 
-func (ses *stateEngineSuite) TestStartUpError(c *C) {
+func (ses *stateEngineSuite) TestStartUpError(c *tc.C) {
 	s := state.New(nil)
 	se := overlord.NewStateEngine(s)
 
@@ -104,11 +104,11 @@ func (ses *stateEngineSuite) TestStartUpError(c *C) {
 	se.AddManager(mgr2)
 
 	err := se.StartUp()
-	c.Check(err.Error(), DeepEquals, "state startup errors: [boom1 boom2]")
-	c.Check(calls, DeepEquals, []string{"startup:mgr1", "startup:mgr2"})
+	c.Check(err.Error(), tc.DeepEquals, "state startup errors: [boom1 boom2]")
+	c.Check(calls, tc.DeepEquals, []string{"startup:mgr1", "startup:mgr2"})
 }
 
-func (ses *stateEngineSuite) TestEnsure(c *C) {
+func (ses *stateEngineSuite) TestEnsure(c *tc.C) {
 	s := state.New(nil)
 	se := overlord.NewStateEngine(s)
 
@@ -121,20 +121,20 @@ func (ses *stateEngineSuite) TestEnsure(c *C) {
 	se.AddManager(mgr2)
 
 	err := se.Ensure()
-	c.Check(err, ErrorMatches, "state engine skipped startup")
-	c.Assert(se.StartUp(), IsNil)
+	c.Check(err, tc.ErrorMatches, "state engine skipped startup")
+	c.Assert(se.StartUp(), tc.IsNil)
 	calls = []string{}
 
 	err = se.Ensure()
-	c.Assert(err, IsNil)
-	c.Check(calls, DeepEquals, []string{"ensure:mgr1", "ensure:mgr2"})
+	c.Assert(err, tc.IsNil)
+	c.Check(calls, tc.DeepEquals, []string{"ensure:mgr1", "ensure:mgr2"})
 
 	err = se.Ensure()
-	c.Assert(err, IsNil)
-	c.Check(calls, DeepEquals, []string{"ensure:mgr1", "ensure:mgr2", "ensure:mgr1", "ensure:mgr2"})
+	c.Assert(err, tc.IsNil)
+	c.Check(calls, tc.DeepEquals, []string{"ensure:mgr1", "ensure:mgr2", "ensure:mgr1", "ensure:mgr2"})
 }
 
-func (ses *stateEngineSuite) TestEnsureError(c *C) {
+func (ses *stateEngineSuite) TestEnsureError(c *tc.C) {
 	s := state.New(nil)
 	se := overlord.NewStateEngine(s)
 
@@ -149,15 +149,15 @@ func (ses *stateEngineSuite) TestEnsureError(c *C) {
 	se.AddManager(mgr1)
 	se.AddManager(mgr2)
 
-	c.Assert(se.StartUp(), IsNil)
+	c.Assert(se.StartUp(), tc.IsNil)
 	calls = []string{}
 
 	err := se.Ensure()
-	c.Check(err.Error(), DeepEquals, "state ensure errors: [boom1 boom2]")
-	c.Check(calls, DeepEquals, []string{"ensure:mgr1", "ensure:mgr2"})
+	c.Check(err.Error(), tc.DeepEquals, "state ensure errors: [boom1 boom2]")
+	c.Check(calls, tc.DeepEquals, []string{"ensure:mgr1", "ensure:mgr2"})
 }
 
-func (ses *stateEngineSuite) TestStop(c *C) {
+func (ses *stateEngineSuite) TestStop(c *tc.C) {
 	s := state.New(nil)
 	se := overlord.NewStateEngine(s)
 
@@ -169,14 +169,14 @@ func (ses *stateEngineSuite) TestStop(c *C) {
 	se.AddManager(mgr1)
 	se.AddManager(mgr2)
 
-	c.Assert(se.StartUp(), IsNil)
+	c.Assert(se.StartUp(), tc.IsNil)
 	calls = []string{}
 
 	se.Stop()
-	c.Check(calls, DeepEquals, []string{"stop:mgr2", "stop:mgr1"})
+	c.Check(calls, tc.DeepEquals, []string{"stop:mgr2", "stop:mgr1"})
 	se.Stop()
-	c.Check(calls, HasLen, 2)
+	c.Check(calls, tc.HasLen, 2)
 
 	err := se.Ensure()
-	c.Check(err, ErrorMatches, "state engine already stopped")
+	c.Check(err, tc.ErrorMatches, "state engine already stopped")
 }

@@ -21,13 +21,13 @@ import (
 	"net/url"
 	"time"
 
-	. "gopkg.in/check.v1"
+	"github.com/canonical/tc"
 	"gopkg.in/yaml.v3"
 
 	"github.com/SimonRichardson/charmd/client"
 )
 
-func (cs *clientSuite) TestNotice(c *C) {
+func (cs *clientSuite) TestNotice(c *tc.C) {
 	cs.rsp = `{"type": "sync", "result": {
 		"id": "123",
 		"user-id": 1000,
@@ -42,11 +42,11 @@ func (cs *clientSuite) TestNotice(c *C) {
 		"expire-after": "168h"
 	}}`
 	notice, err := cs.cli.Notice("123")
-	c.Assert(err, IsNil)
-	c.Assert(cs.req.Method, Equals, "GET")
-	c.Assert(cs.req.URL.Path, Equals, "/v1/notices/123")
+	c.Assert(err, tc.IsNil)
+	c.Assert(cs.req.Method, tc.Equals, "GET")
+	c.Assert(cs.req.URL.Path, tc.Equals, "/v1/notices/123")
 	uid := uint32(1000)
-	c.Assert(notice, DeepEquals, &client.Notice{
+	c.Assert(notice, tc.DeepEquals, &client.Notice{
 		ID:            "123",
 		UserID:        &uid,
 		Type:          client.CustomNotice,
@@ -61,12 +61,12 @@ func (cs *clientSuite) TestNotice(c *C) {
 	})
 }
 
-func (cs *clientSuite) TestNoticeInvalidID(c *C) {
+func (cs *clientSuite) TestNoticeInvalidID(c *tc.C) {
 	_, err := cs.cli.Notice("<boo>")
-	c.Assert(err, ErrorMatches, "invalid notice ID.*")
+	c.Assert(err, tc.ErrorMatches, "invalid notice ID.*")
 }
 
-func (cs *clientSuite) TestNotices(c *C) {
+func (cs *clientSuite) TestNotices(c *tc.C) {
 	cs.rsp = `{"type": "sync", "result": [{
 		"id":   "1",
 		"user-id": 1000,
@@ -90,12 +90,12 @@ func (cs *clientSuite) TestNotices(c *C) {
 		"occurrences": 1
 	}]}`
 	notices, err := cs.cli.Notices(&client.NoticesOptions{})
-	c.Assert(err, IsNil)
-	c.Assert(cs.req.Method, Equals, "GET")
-	c.Assert(cs.req.URL.Path, Equals, "/v1/notices")
-	c.Assert(cs.req.URL.Query(), DeepEquals, url.Values{})
+	c.Assert(err, tc.IsNil)
+	c.Assert(cs.req.Method, tc.Equals, "GET")
+	c.Assert(cs.req.URL.Path, tc.Equals, "/v1/notices")
+	c.Assert(cs.req.URL.Query(), tc.DeepEquals, url.Values{})
 	uid := uint32(1000)
-	c.Assert(notices, DeepEquals, []*client.Notice{{
+	c.Assert(notices, tc.DeepEquals, []*client.Notice{{
 		ID:            "1",
 		UserID:        &uid,
 		Type:          "custom",
@@ -119,7 +119,7 @@ func (cs *clientSuite) TestNotices(c *C) {
 	}})
 }
 
-func (cs *clientSuite) TestNoticesFilters(c *C) {
+func (cs *clientSuite) TestNoticesFilters(c *tc.C) {
 	cs.rsp = `{"type": "sync", "result": []}`
 	uid := uint32(1000)
 	notices, err := cs.cli.Notices(&client.NoticesOptions{
@@ -129,20 +129,20 @@ func (cs *clientSuite) TestNoticesFilters(c *C) {
 		Keys:   []string{"foo.com/bar", "example.com/x"},
 		After:  time.Date(2023, 9, 5, 16, 43, 32, 123_456_789, time.UTC),
 	})
-	c.Assert(err, IsNil)
-	c.Assert(cs.req.Method, Equals, "GET")
-	c.Assert(cs.req.URL.Path, Equals, "/v1/notices")
-	c.Assert(cs.req.URL.Query(), DeepEquals, url.Values{
+	c.Assert(err, tc.IsNil)
+	c.Assert(cs.req.Method, tc.Equals, "GET")
+	c.Assert(cs.req.URL.Path, tc.Equals, "/v1/notices")
+	c.Assert(cs.req.URL.Query(), tc.DeepEquals, url.Values{
 		"users":   {"all"},
 		"user-id": {"1000"},
 		"types":   {"custom"},
 		"keys":    {"foo.com/bar", "example.com/x"},
 		"after":   {"2023-09-05T16:43:32.123456789Z"},
 	})
-	c.Assert(notices, DeepEquals, []*client.Notice{})
+	c.Assert(notices, tc.DeepEquals, []*client.Notice{})
 }
 
-func (cs *clientSuite) TestNotify(c *C) {
+func (cs *clientSuite) TestNotify(c *tc.C) {
 	cs.rsp = `{"type": "sync", "result": {"id": "7"}}`
 	noticeID, err := cs.cli.Notify(&client.NotifyOptions{
 		Type:        client.CustomNotice,
@@ -150,17 +150,17 @@ func (cs *clientSuite) TestNotify(c *C) {
 		RepeatAfter: time.Hour,
 		Data:        map[string]string{"k": "9"},
 	})
-	c.Assert(err, IsNil)
-	c.Check(noticeID, Equals, "7")
-	c.Assert(cs.req.Method, Equals, "POST")
-	c.Assert(cs.req.URL.Path, Equals, "/v1/notices")
+	c.Assert(err, tc.IsNil)
+	c.Check(noticeID, tc.Equals, "7")
+	c.Assert(cs.req.Method, tc.Equals, "POST")
+	c.Assert(cs.req.URL.Path, tc.Equals, "/v1/notices")
 
 	body, err := io.ReadAll(cs.req.Body)
-	c.Assert(err, IsNil)
+	c.Assert(err, tc.IsNil)
 	var m map[string]any
 	err = json.Unmarshal(body, &m)
-	c.Assert(err, IsNil)
-	c.Assert(m, DeepEquals, map[string]any{
+	c.Assert(err, tc.IsNil)
+	c.Assert(m, tc.DeepEquals, map[string]any{
 		"action":       "add",
 		"type":         "custom",
 		"key":          "foo.com/bar",
@@ -169,30 +169,30 @@ func (cs *clientSuite) TestNotify(c *C) {
 	})
 }
 
-func (cs *clientSuite) TestNotifyMinimal(c *C) {
+func (cs *clientSuite) TestNotifyMinimal(c *tc.C) {
 	cs.rsp = `{"type": "sync", "result": {"id": "1"}}`
 	noticeID, err := cs.cli.Notify(&client.NotifyOptions{
 		Type: client.CustomNotice,
 		Key:  "a.b/c",
 	})
-	c.Assert(err, IsNil)
-	c.Check(noticeID, Equals, "1")
-	c.Assert(cs.req.Method, Equals, "POST")
-	c.Assert(cs.req.URL.Path, Equals, "/v1/notices")
+	c.Assert(err, tc.IsNil)
+	c.Check(noticeID, tc.Equals, "1")
+	c.Assert(cs.req.Method, tc.Equals, "POST")
+	c.Assert(cs.req.URL.Path, tc.Equals, "/v1/notices")
 
 	body, err := io.ReadAll(cs.req.Body)
-	c.Assert(err, IsNil)
+	c.Assert(err, tc.IsNil)
 	var m map[string]any
 	err = json.Unmarshal(body, &m)
-	c.Assert(err, IsNil)
-	c.Assert(m, DeepEquals, map[string]any{
+	c.Assert(err, tc.IsNil)
+	c.Assert(m, tc.DeepEquals, map[string]any{
 		"action": "add",
 		"type":   "custom",
 		"key":    "a.b/c",
 	})
 }
 
-func (cs *clientSuite) TestWaitNotices(c *C) {
+func (cs *clientSuite) TestWaitNotices(c *tc.C) {
 	cs.rsp = `{"type": "sync", "result": [{
 		"id":   "1",
 		"user-id": 1000,
@@ -204,14 +204,14 @@ func (cs *clientSuite) TestWaitNotices(c *C) {
 		"occurrences": 1
 	}]}`
 	notices, err := cs.cli.WaitNotices(context.Background(), 10*time.Second, nil)
-	c.Assert(err, IsNil)
-	c.Assert(cs.req.Method, Equals, "GET")
-	c.Assert(cs.req.URL.Path, Equals, "/v1/notices")
-	c.Assert(cs.req.URL.Query(), DeepEquals, url.Values{
+	c.Assert(err, tc.IsNil)
+	c.Assert(cs.req.Method, tc.Equals, "GET")
+	c.Assert(cs.req.URL.Path, tc.Equals, "/v1/notices")
+	c.Assert(cs.req.URL.Query(), tc.DeepEquals, url.Values{
 		"timeout": {"10s"},
 	})
 	uid := uint32(1000)
-	c.Assert(notices, DeepEquals, []*client.Notice{{
+	c.Assert(notices, tc.DeepEquals, []*client.Notice{{
 		ID:            "1",
 		UserID:        &uid,
 		Type:          "warning",
@@ -223,14 +223,14 @@ func (cs *clientSuite) TestWaitNotices(c *C) {
 	}})
 }
 
-func (cs *clientSuite) TestWaitNoticesTimeout(c *C) {
+func (cs *clientSuite) TestWaitNoticesTimeout(c *tc.C) {
 	cs.rsp = `{"type": "sync", "result": []}`
 	notices, err := cs.cli.WaitNotices(context.Background(), time.Second, nil)
-	c.Assert(err, IsNil)
-	c.Assert(notices, HasLen, 0)
+	c.Assert(err, tc.IsNil)
+	c.Assert(notices, tc.HasLen, 0)
 }
 
-func (cs *clientSuite) TestNoticeMarshalJSON(c *C) {
+func (cs *clientSuite) TestNoticeMarshalJSON(c *tc.C) {
 	uid := uint32(1000)
 	notice := client.Notice{
 		ID:            "123",
@@ -246,18 +246,18 @@ func (cs *clientSuite) TestNoticeMarshalJSON(c *C) {
 		ExpireAfter:   7 * 24 * time.Hour,
 	}
 	data, err := json.Marshal(notice)
-	c.Assert(err, IsNil)
-	c.Check(string(data), Equals, `{"id":"123","user-id":1000,"type":"custom","key":"a.b/c","first-occurred":"2023-09-05T15:43:00Z","last-occurred":"2023-09-05T17:43:00Z","last-repeated":"2023-09-05T16:43:00Z","occurrences":7,"last-data":{"k":"v"},"repeat-after":"1h0m0s","expire-after":"168h0m0s"}`)
+	c.Assert(err, tc.IsNil)
+	c.Check(string(data), tc.Equals, `{"id":"123","user-id":1000,"type":"custom","key":"a.b/c","first-occurred":"2023-09-05T15:43:00Z","last-occurred":"2023-09-05T17:43:00Z","last-repeated":"2023-09-05T16:43:00Z","occurrences":7,"last-data":{"k":"v"},"repeat-after":"1h0m0s","expire-after":"168h0m0s"}`)
 
 	notice.RepeatAfter = 0
 	notice.ExpireAfter = 0
 	notice.LastData = nil
 	data, err = json.Marshal(notice)
-	c.Assert(err, IsNil)
-	c.Check(string(data), Equals, `{"id":"123","user-id":1000,"type":"custom","key":"a.b/c","first-occurred":"2023-09-05T15:43:00Z","last-occurred":"2023-09-05T17:43:00Z","last-repeated":"2023-09-05T16:43:00Z","occurrences":7}`)
+	c.Assert(err, tc.IsNil)
+	c.Check(string(data), tc.Equals, `{"id":"123","user-id":1000,"type":"custom","key":"a.b/c","first-occurred":"2023-09-05T15:43:00Z","last-occurred":"2023-09-05T17:43:00Z","last-repeated":"2023-09-05T16:43:00Z","occurrences":7}`)
 }
 
-func (cs *clientSuite) TestNoticeMarshalYAML(c *C) {
+func (cs *clientSuite) TestNoticeMarshalYAML(c *tc.C) {
 	uid := uint32(1000)
 	notice := client.Notice{
 		ID:            "123",
@@ -273,8 +273,8 @@ func (cs *clientSuite) TestNoticeMarshalYAML(c *C) {
 		ExpireAfter:   7 * 24 * time.Hour,
 	}
 	data, err := yaml.Marshal(notice)
-	c.Assert(err, IsNil)
-	c.Check(string(data), Equals, `id: "123"
+	c.Assert(err, tc.IsNil)
+	c.Check(string(data), tc.Equals, `id: "123"
 user-id: 1000
 type: custom
 key: a.b/c
@@ -292,8 +292,8 @@ expire-after: 168h0m0s
 	notice.ExpireAfter = 0
 	notice.LastData = nil
 	data, err = yaml.Marshal(notice)
-	c.Assert(err, IsNil)
-	c.Check(string(data), Equals, `id: "123"
+	c.Assert(err, tc.IsNil)
+	c.Check(string(data), tc.Equals, `id: "123"
 user-id: 1000
 type: custom
 key: a.b/c

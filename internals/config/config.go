@@ -25,6 +25,7 @@ type Services struct {
 type Endpoint struct {
 	Type string `yaml:"type"`
 	URL  string `yaml:"url"`
+	Base string `yaml:"base"`
 }
 
 // Load reads and validates configuration from path.
@@ -59,6 +60,17 @@ func (c *Config) Validate() error {
 	}
 	if endpoint.Type == "juju" && endpoint.URL == "" {
 		return fmt.Errorf("services.charm-api.url: is required for juju")
+	}
+	if endpoint.Base != "" {
+		if endpoint.Type == "juju" {
+			return fmt.Errorf("services.charm-api.base: is only supported by charmhub")
+		}
+		nameChannel, architecture, found := strings.Cut(endpoint.Base, "/")
+		name, channel, baseFound := strings.Cut(nameChannel, "@")
+		if !found || !baseFound || name == "" || channel == "" || architecture == "" ||
+			strings.Contains(channel, "@") || strings.Contains(architecture, "/") {
+			return fmt.Errorf("services.charm-api.base: must use NAME@CHANNEL/ARCHITECTURE")
+		}
 	}
 	if endpoint.URL == "" {
 		return nil

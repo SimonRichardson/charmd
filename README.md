@@ -16,8 +16,10 @@ services:
 ```
 
 Choose a backend during daemon setup. Charmhub accepts an optional alternate
-server URL; Juju requires the base URL of its S3-compatible blob endpoint and
-downloads archives at `sha256/<digest>`:
+server URL and base override. The base uses the conventional
+`NAME@CHANNEL/ARCHITECTURE` form, such as `ubuntu@22.04/amd64`; when unset,
+Charmd detects it from the host. Juju requires the base URL of its
+S3-compatible blob endpoint and downloads archives at `sha256/<digest>`:
 
 ```yaml
 services:
@@ -27,6 +29,15 @@ services:
 ```
 
 Configured URLs must be HTTP or HTTPS and may not include credentials.
+
+The checked-in example selects Charmhub and configures its compatible base:
+
+```yaml
+services:
+  charm-api:
+    type: charmhub
+    base: ubuntu@22.04/amd64
+```
 
 Charm installation is asynchronous. `POST /v1/charms` accepts:
 
@@ -46,12 +57,17 @@ match it. The Juju backend requires `sha256` and reads the archive from its
 `sha256/<digest>` blob path; `revision` and `channel` are not used by that
 backend. All selectors are persisted with the install change.
 
+Fetched archives are stored atomically beneath `$CHARMD/charms` as
+`<sha256>.charm`. The fetch task persists both the resolved download metadata
+and local archive path for the subsequent install task.
+
 The read-only commands deliberately follow Pebble's command names and table
 layout:
 
 ```text
 charmd changes
 charmd tasks <change-id>
+charmd install [--revision REVISION] [--channel CHANNEL] <charm-name>
 charmd notices [--type TYPE] [--key KEY] [--timeout DURATION]
 charmd notice <id>
 charmd notice <type> <key>

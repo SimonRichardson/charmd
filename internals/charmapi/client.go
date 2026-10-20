@@ -61,7 +61,7 @@ type CharmClient interface {
 func New(endpoint config.Endpoint) (CharmClient, error) {
 	switch endpoint.Type {
 	case "", BackendCharmhub:
-		client, err := charmhub.New(&charmhub.Options{URL: endpoint.URL})
+		client, err := charmhub.New(&charmhub.Options{URL: endpoint.URL, Base: endpoint.Base})
 		if err != nil {
 			return nil, fmt.Errorf("create Charmhub client: %w", err)
 		}

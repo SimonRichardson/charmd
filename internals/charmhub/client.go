@@ -11,6 +11,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"runtime"
 	"strings"
 )
 
@@ -21,6 +23,8 @@ const defaultServerURL = "https://api.charmhub.io"
 type Options struct {
 	URL        string
 	HTTPClient *http.Client
+	// Base optionally overrides the detected system base, for example "ubuntu@22.04/amd64".
+	Base string
 }
 
 // Download identifies the archive returned by Charmhub's refresh endpoint.
@@ -40,6 +44,7 @@ type DownloadOptions struct {
 type Client struct {
 	refreshURL *url.URL
 	httpClient *http.Client
+	base       string
 }
 
 // New constructs a Charmhub client.
@@ -59,7 +64,10 @@ func New(options *Options) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{refreshURL: endpoint, httpClient: httpClient}, nil
+	return &Client{
+		refreshURL: endpoint, httpClient: httpClient,
+		base: optionsBase(options),
+	}, nil
 }
 
 // Endpoint returns the refresh endpoint used by the client.
@@ -75,7 +83,11 @@ func (c *Client) Download(ctx context.Context, charm string, options DownloadOpt
 	if err != nil {
 		return Download{}, err
 	}
-	request, err := c.downloadRequest(ctx, charm, instanceKey, options)
+	base, err := c.baseForDownload()
+	if err != nil {
+		return Download{}, err
+	}
+	request, err := c.downloadRequest(ctx, charm, instanceKey, base, options)
 	if err != nil {
 		return Download{}, err
 	}
@@ -111,7 +123,7 @@ func newInstanceKey() (string, error) {
 }
 
 func (c *Client) downloadRequest(
-	ctx context.Context, charm, instanceKey string, options DownloadOptions,
+	ctx context.Context, charm, instanceKey string, base refreshBase, options DownloadOptions,
 ) (*http.Request, error) {
 	body, err := json.Marshal(refreshRequest{
 		Context: []any{},
@@ -119,6 +131,7 @@ func (c *Client) downloadRequest(
 			Action:      "download",
 			InstanceKey: instanceKey,
 			Name:        charm,
+			Base:        base,
 			Revision:    options.Revision,
 			Channel:     options.Channel,
 		}},
@@ -168,6 +181,9 @@ func downloadFromRefresh(instanceKey string, response refreshResponse) (Download
 	}
 
 	refresh := response.Results[0]
+	if refresh.Result == "error" && refresh.Error != nil {
+		return Download{}, fmt.Errorf("refresh charm: %s", refresh.Error.Message)
+	}
 	if refresh.InstanceKey != instanceKey {
 		return Download{}, fmt.Errorf(
 			"refresh charm: response instance key %q does not match %q",
@@ -230,11 +246,12 @@ type refreshRequest struct {
 }
 
 type refreshAction struct {
-	Action      string `json:"action"`
-	InstanceKey string `json:"instance-key"`
-	Name        string `json:"name"`
-	Revision    *int   `json:"revision,omitempty"`
-	Channel     string `json:"channel,omitempty"`
+	Action      string      `json:"action"`
+	InstanceKey string      `json:"instance-key"`
+	Name        string      `json:"name"`
+	Base        refreshBase `json:"base"`
+	Revision    *int        `json:"revision,omitempty"`
+	Channel     string      `json:"channel,omitempty"`
 }
 
 type refreshResponse struct {
@@ -243,8 +260,9 @@ type refreshResponse struct {
 }
 
 type refreshResult struct {
-	InstanceKey string `json:"instance-key"`
-	Result      string `json:"result"`
+	InstanceKey string        `json:"instance-key"`
+	Result      string        `json:"result"`
+	Error       *refreshError `json:"error"`
 	Charm       struct {
 		Download refreshDownload `json:"download"`
 	} `json:"charm"`
@@ -256,5 +274,56 @@ type refreshDownload struct {
 }
 
 type refreshError struct {
+	Code    string `json:"code"`
 	Message string `json:"message"`
+}
+
+type refreshBase struct {
+	Name         string `json:"name"`
+	Channel      string `json:"channel"`
+	Architecture string `json:"architecture"`
+}
+
+func optionsBase(options *Options) string {
+	if options == nil {
+		return ""
+	}
+	return options.Base
+}
+
+func (c *Client) baseForDownload() (refreshBase, error) {
+	if c.base != "" {
+		return parseBase(c.base)
+	}
+	data, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return refreshBase{}, fmt.Errorf("read system base: %w", err)
+	}
+	values := make(map[string]string)
+	for _, line := range strings.Split(string(data), "\n") {
+		key, value, found := strings.Cut(line, "=")
+		if found {
+			values[key] = strings.Trim(value, `"`)
+		}
+	}
+	return parseBase(values["ID"] + "@" + values["VERSION_ID"] + "/" + charmhubArchitecture(runtime.GOARCH))
+}
+
+func parseBase(base string) (refreshBase, error) {
+	nameChannel, architecture, found := strings.Cut(base, "/")
+	if !found || architecture == "" || strings.Contains(architecture, "/") {
+		return refreshBase{}, fmt.Errorf("invalid Charmhub base %q", base)
+	}
+	name, channel, found := strings.Cut(nameChannel, "@")
+	if !found || name == "" || channel == "" || strings.Contains(channel, "@") {
+		return refreshBase{}, fmt.Errorf("invalid Charmhub base %q", base)
+	}
+	return refreshBase{Name: name, Channel: channel, Architecture: architecture}, nil
+}
+
+func charmhubArchitecture(architecture string) string {
+	if architecture == "ppc64le" {
+		return "ppc64el"
+	}
+	return architecture
 }

@@ -14,12 +14,14 @@ type configSuite struct{}
 var _ = tc.InternalSuite(&configSuite{})
 
 func (s *configSuite) TestDecode(c *tc.C) {
-	rawConfig := "services:\n  charm-api:\n    type: juju\n" +
+	rawConfig := "services:\n  charm-api:\n    type: charmhub\n" +
+		"    base: ubuntu@22.04/amd64\n" +
 		"    url: https://agent.example.test/charm\n"
 	config, err := Decode(strings.NewReader(rawConfig))
 	c.Assert(err, tc.IsNil)
-	c.Check(config.Services.CharmAPI.Type, tc.Equals, "juju")
+	c.Check(config.Services.CharmAPI.Type, tc.Equals, "charmhub")
 	c.Check(config.Services.CharmAPI.URL, tc.Equals, "https://agent.example.test/charm")
+	c.Check(config.Services.CharmAPI.Base, tc.Equals, "ubuntu@22.04/amd64")
 }
 
 func (s *configSuite) TestDecodeAllowsEmptyCharmAPI(c *tc.C) {
@@ -48,6 +50,16 @@ func (s *configSuite) TestDecodeRejectsInvalidCharmAPI(c *tc.C) {
 		},
 		{name: "unknown backend", config: "services:\n  charm-api:\n    type: other\n", want: "must be charmhub or juju"},
 		{name: "Juju without URL", config: "services:\n  charm-api:\n    type: juju\n", want: "is required for juju"},
+		{
+			name: "invalid base", config: "services:\n  charm-api:\n" +
+				"    base: ubuntu@22.04\n",
+			want: "must use NAME@CHANNEL/ARCHITECTURE",
+		},
+		{
+			name: "Juju base", config: "services:\n  charm-api:\n    type: juju\n" +
+				"    url: https://juju.example.test\n    base: ubuntu@22.04/amd64\n",
+			want: "is only supported by charmhub",
+		},
 		{
 			name: "unknown field", config: "services:\n  charm-api:\n" +
 				"    endpoint: https://agent.example.test\n",

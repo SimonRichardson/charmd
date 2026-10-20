@@ -16,8 +16,8 @@ func SetNoticeTestClient(api *client.Client, socket string) {
 // ParserForTest returns a parser for the retained upstream command tests.
 func ParserForTest() *flags.Parser {
 	parser := flags.NewParser(nil, flags.None)
-	for _, name := range []string{"notice", "notices", "okay"} {
-		command := noticeCommands[name]
+	for _, name := range []string{"install", "notice", "notices", "okay"} {
+		command := commands[name]
 		_, err := parser.AddCommand(name, command.Summary, command.Description,
 			command.New(&CmdOptions{Client: testClient, SocketPath: testSocket}))
 		if err != nil {

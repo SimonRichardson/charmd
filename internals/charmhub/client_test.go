@@ -31,6 +31,9 @@ func (s *clientSuite) TestDownload(c *tc.C) {
 		c.Check(body.Actions[0].InstanceKey, tc.Not(tc.Equals), "postgresql-k8s")
 		c.Check(len(body.Actions[0].InstanceKey), tc.Equals, 32)
 		c.Check(body.Actions[0].Name, tc.Equals, "postgresql-k8s")
+		c.Check(body.Actions[0].Base, tc.DeepEquals, refreshBase{
+			Name: "ubuntu", Channel: "22.04", Architecture: "amd64",
+		})
 		c.Check(body.Actions[0].Revision, tc.DeepEquals, intPtr(42))
 		c.Check(body.Actions[0].Channel, tc.Equals, "14/stable")
 		c.Check(body.Fields, tc.DeepEquals, []string{"download"})
@@ -43,7 +46,7 @@ func (s *clientSuite) TestDownload(c *tc.C) {
 	}))
 	defer server.Close()
 
-	client, err := New(&Options{URL: server.URL + "/api/", HTTPClient: server.Client()})
+	client, err := New(testOptions(server.URL+"/api/", server.Client()))
 	c.Assert(err, tc.IsNil)
 	download, err := client.Download(c.Context(), "postgresql-k8s", DownloadOptions{
 		Revision: intPtr(42),
@@ -87,7 +90,7 @@ func (s *clientSuite) TestDownloadRejectsInvalidCharmWithoutRequest(c *tc.C) {
 	}))
 	defer server.Close()
 
-	client, err := New(&Options{URL: server.URL, HTTPClient: server.Client()})
+	client, err := New(testOptions(server.URL, server.Client()))
 	c.Assert(err, tc.IsNil)
 	for _, charm := range []string{"", " \t", " postgresql-k8s", "postgresql-k8s\n"} {
 		download, err := client.Download(c.Context(), charm, DownloadOptions{})
@@ -134,6 +137,17 @@ func (s *clientSuite) TestDownloadRejectsInvalidResponses(c *tc.C) {
 			name: "API error", body: func(string) string { return `{"error-list":[{"message":"charm not found"}]}` },
 			want: "charm not found",
 		},
+		{
+			name: "action error",
+			body: func(key string) string {
+				return fmt.Sprintf(
+					`{"results":[{"instance-key":%q,"result":"error",`+
+						`"error":{"code":"missing-charm-base","message":"base is required"}}]}`,
+					key,
+				)
+			},
+			want: "base is required",
+		},
 	}
 
 	for _, test := range tests {
@@ -145,7 +159,7 @@ func (s *clientSuite) TestDownloadRejectsInvalidResponses(c *tc.C) {
 			_, err := w.Write([]byte(test.body(body.Actions[0].InstanceKey)))
 			c.Check(err, tc.IsNil)
 		}))
-		client, err := New(&Options{URL: server.URL, HTTPClient: server.Client()})
+		client, err := New(testOptions(server.URL, server.Client()))
 		c.Assert(err, tc.IsNil)
 		download, err := client.Download(c.Context(), "postgresql-k8s", DownloadOptions{})
 		server.Close()
@@ -161,7 +175,7 @@ func (s *clientSuite) TestDownloadRejectsUnexpectedHTTPStatus(c *tc.C) {
 	}))
 	defer server.Close()
 
-	client, err := New(&Options{URL: server.URL, HTTPClient: server.Client()})
+	client, err := New(testOptions(server.URL, server.Client()))
 	c.Assert(err, tc.IsNil)
 	download, err := client.Download(c.Context(), "postgresql-k8s", DownloadOptions{})
 	c.Check(download, tc.DeepEquals, Download{})
@@ -175,7 +189,7 @@ func (s *clientSuite) TestDownloadRejectsInvalidSelectorsWithoutRequest(c *tc.C)
 	}))
 	defer server.Close()
 
-	client, err := New(&Options{URL: server.URL, HTTPClient: server.Client()})
+	client, err := New(testOptions(server.URL, server.Client()))
 	c.Assert(err, tc.IsNil)
 	for _, options := range []DownloadOptions{
 		{Revision: intPtr(-1)},
@@ -190,3 +204,9 @@ func (s *clientSuite) TestDownloadRejectsInvalidSelectorsWithoutRequest(c *tc.C)
 }
 
 func intPtr(value int) *int { return &value }
+
+func testOptions(url string, httpClient *http.Client) *Options {
+	return &Options{
+		URL: url, HTTPClient: httpClient, Base: "ubuntu@22.04/amd64",
+	}
+}

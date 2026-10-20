@@ -14,7 +14,9 @@ import (
 	"github.com/SimonRichardson/charmd/client"
 )
 
-const changesUsage = "usage: charmd changes\n       charmd tasks <change-id>\n       charmd notice|notices|okay\n"
+const changesUsage = "usage: charmd changes\n       charmd tasks <change-id>\n" +
+	"       charmd install [--revision REVISION] [--channel CHANNEL] <charm-name>\n" +
+	"       charmd notice|notices|okay\n"
 
 // RunWithClient parses and executes the supported changes commands through api.
 func RunWithClient(args []string, api *client.Client, out, errOut io.Writer) error {
@@ -33,14 +35,17 @@ func RunWithSocket(args []string, api *client.Client, socketPath string, out, er
 		return runChanges(args[1:], api, out, errOut)
 	case "tasks":
 		return runTasks(args[1:], api, out)
-	case "notice", "notices", "okay":
+	case "install", "notice", "notices", "okay":
 		previousOut, previousErr := Stdout, Stderr
 		Stdout, Stderr = out, errOut
 		defer func() { Stdout, Stderr = previousOut, previousErr }()
-		command := noticeCommands[args[0]].New(&CmdOptions{Client: api, SocketPath: socketPath})
+		command := commands[args[0]].New(&CmdOptions{Client: api, SocketPath: socketPath})
 		parser := flags.NewParser(command, flags.None)
-		_, err := parser.ParseArgs(args[1:])
-		return err
+		rest, err := parser.ParseArgs(args[1:])
+		if err != nil {
+			return err
+		}
+		return command.Execute(rest)
 	default:
 		return fmt.Errorf("unknown command %q\n%s", args[0], changesUsage)
 	}

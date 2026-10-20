@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -71,7 +72,8 @@ func New(opts *Options) (*Overlord, error) {
 	}
 	o.engine = NewStateEngine(o.state)
 	o.runner = state.NewTaskRunner(o.state)
-	o.charmMgr = charmstate.NewManager(o.state, o.runner, opts.CharmAPI)
+	charmDir := filepath.Join(filepath.Dir(opts.StatePath), "charms")
+	o.charmMgr = charmstate.NewManager(o.state, o.runner, opts.CharmAPI, charmDir)
 	o.engine.AddManager(o.charmMgr)
 	return o, nil
 }

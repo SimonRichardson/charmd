@@ -126,10 +126,10 @@ type CmdInfo struct {
 	New                        func(*CmdOptions) flags.Commander
 }
 
-var noticeCommands = map[string]*CmdInfo{}
+var commands = map[string]*CmdInfo{}
 
 // AddCommand registers a command.
-func AddCommand(command *CmdInfo) { noticeCommands[command.Name] = command }
+func AddCommand(command *CmdInfo) { commands[command.Name] = command }
 
 func merge(maps ...map[string]string) map[string]string {
 	result := make(map[string]string)

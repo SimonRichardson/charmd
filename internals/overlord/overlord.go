@@ -9,14 +9,25 @@ import (
 	"sync"
 	"time"
 
+	"github.com/SimonRichardson/charmd/internals/charmapi"
+	"github.com/SimonRichardson/charmd/internals/overlord/charmstate"
 	"github.com/SimonRichardson/charmd/internals/overlord/state"
 )
+
+// Options supplies the static dependencies used to construct an Overlord.
+type Options struct {
+	// StatePath is the path to the persistent state checkpoint.
+	StatePath string
+	// CharmAPI accesses the Juju-provided charm API.
+	CharmAPI *charmapi.Client
+}
 
 // Overlord owns the sole State and coordinates managers and the shared task runner.
 type Overlord struct {
 	state       *state.State
 	runner      *state.TaskRunner
 	engine      *StateEngine
+	charmMgr    *charmstate.Manager
 	wake        chan struct{}
 	stop        chan struct{}
 	done        chan struct{}
@@ -29,15 +40,24 @@ type Overlord struct {
 	nextEnsure  time.Time
 }
 
-// New loads the file-backed state at path without starting any managers.
-func New(path string) (*Overlord, error) {
+// New loads file-backed state and constructs its core managers without starting them.
+func New(opts *Options) (*Overlord, error) {
+	if opts == nil {
+		return nil, fmt.Errorf("overlord options are required")
+	}
+	if opts.StatePath == "" {
+		return nil, fmt.Errorf("state path is required")
+	}
+	if opts.CharmAPI == nil {
+		return nil, fmt.Errorf("charm API client is required")
+	}
 	o := &Overlord{
 		wake: make(chan struct{}, 1),
 		stop: make(chan struct{}),
 		done: make(chan struct{}),
 	}
-	backend := &fileBackend{path: path, ensure: o.EnsureBefore}
-	data, err := os.ReadFile(path)
+	backend := &fileBackend{path: opts.StatePath, ensure: o.EnsureBefore}
+	data, err := os.ReadFile(opts.StatePath)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("load state: %w", err)
@@ -51,6 +71,8 @@ func New(path string) (*Overlord, error) {
 	}
 	o.engine = NewStateEngine(o.state)
 	o.runner = state.NewTaskRunner(o.state)
+	o.charmMgr = charmstate.NewManager(o.state, opts.CharmAPI)
+	o.engine.AddManager(o.charmMgr)
 	return o, nil
 }
 
@@ -59,6 +81,9 @@ func (o *Overlord) State() *state.State { return o.state }
 
 // TaskRunner returns the shared task dispatcher.
 func (o *Overlord) TaskRunner() *state.TaskRunner { return o.runner }
+
+// CharmManager returns the manager responsible for charm changes.
+func (o *Overlord) CharmManager() *charmstate.Manager { return o.charmMgr }
 
 // AddManager registers a manager before StartUp. It panics after startup begins.
 func (o *Overlord) AddManager(m StateManager) {

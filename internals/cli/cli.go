@@ -18,7 +18,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/SimonRichardson/charmd/client"
-	"github.com/SimonRichardson/charmd/example"
+	"github.com/SimonRichardson/charmd/internals/charmapi"
+	"github.com/SimonRichardson/charmd/internals/config"
 	"github.com/SimonRichardson/charmd/internals/daemon"
 	"github.com/SimonRichardson/charmd/internals/overlord"
 	"github.com/SimonRichardson/charmd/internals/timeutil"
@@ -45,25 +46,30 @@ func Run(args []string) error {
 		}
 		return RunWithSocket(args, api, socketPath, Stdout, Stderr)
 	}
-	return runDaemon(dir, socketPath)
+	configPath := os.Getenv("CHARMD_CONFIG")
+	if configPath == "" {
+		configPath = filepath.Join(dir, "config.yaml")
+	}
+	return runDaemon(dir, socketPath, configPath)
 }
 
-func runDaemon(dir, socketPath string) error {
-	o, err := overlord.New(filepath.Join(dir, "state.json"))
+func runDaemon(dir, socketPath, configPath string) error {
+	runtimeConfig, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+	charmAPI, err := charmapi.New(runtimeConfig.Services.CharmAPI)
+	if err != nil {
+		return err
+	}
+	o, err := overlord.New(&overlord.Options{
+		StatePath: filepath.Join(dir, "state.json"),
+		CharmAPI:  charmAPI,
+	})
 	if err != nil {
 		return err
 	}
 	defer o.Stop()
-	m := example.NewManager(o.State(), o.TaskRunner())
-	o.AddManager(m)
-	o.State().Lock()
-	empty := len(o.State().Changes()) == 0
-	o.State().Unlock()
-	if empty {
-		if _, err := m.CreateChange(); err != nil {
-			return err
-		}
-	}
 	if err := o.StartUp(); err != nil {
 		return err
 	}

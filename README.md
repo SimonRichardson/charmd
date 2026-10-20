@@ -3,6 +3,21 @@
 `charmd` is a small Pebble-inspired changes-and-tasks service. State is stored
 as an atomic JSON checkpoint in `state.json` (or in `$CHARMD_STATE_DIR`).
 
+Before starting the daemon, `jujuagentd` must configure its service endpoints.
+Charmd reads `$CHARMD_CONFIG` when set, otherwise
+`$CHARMD_STATE_DIR/config.yaml` (or `./config.yaml` when no state directory is
+configured). The initial required endpoint is the charm API:
+
+```yaml
+services:
+  charm-api:
+    url: https://127.0.0.1:17070
+```
+
+The endpoint must be an HTTP or HTTPS URL without embedded credentials. It is
+loaded and validated during daemon startup; startup fails if it is absent or
+invalid.
+
 The read-only commands deliberately follow Pebble's command names and table
 layout:
 

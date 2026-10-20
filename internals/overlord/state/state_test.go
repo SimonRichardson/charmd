@@ -127,7 +127,10 @@ func (ss *stateSuite) TestSetPanic(c *tc.C) {
 	unsupported := struct {
 		Ch chan bool
 	}{}
-	c.Check(func() { st.Set("mgr9", unsupported) }, tc.PanicMatches, `internal error: could not marshal value for state entry "mgr9": json: unsupported type:.*`)
+	c.Check(
+		func() { st.Set("mgr9", unsupported) }, tc.PanicMatches,
+		`internal error: could not marshal value for state entry "mgr9": json: unsupported type:.*`,
+	)
 }
 
 func (ss *stateSuite) TestGetNoState(c *tc.C) {

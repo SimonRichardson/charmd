@@ -24,11 +24,11 @@ const charmNameKey = "charm-name"
 type Manager struct {
 	state    *state.State
 	runner   *state.TaskRunner
-	charmAPI *charmapi.Client
+	charmAPI charmapi.CharmClient
 }
 
 // NewManager constructs the manager and registers its task handlers with r.
-func NewManager(s *state.State, r *state.TaskRunner, charmAPI *charmapi.Client) *Manager {
+func NewManager(s *state.State, r *state.TaskRunner, charmAPI charmapi.CharmClient) *Manager {
 	if s == nil {
 		panic("state is required")
 	}
@@ -49,20 +49,22 @@ func NewManager(s *state.State, r *state.TaskRunner, charmAPI *charmapi.Client) 
 func (m *Manager) Ensure() error { return nil }
 
 // Install creates the change that fetches and then installs charm.
-func (m *Manager) Install(charm string) (*state.Change, error) {
-	if strings.TrimSpace(charm) == "" {
+func (m *Manager) Install(request charmapi.DownloadRequest) (*state.Change, error) {
+	if strings.TrimSpace(request.Name) == "" {
 		return nil, fmt.Errorf("charm name is required")
 	}
 
 	m.state.Lock()
 	defer m.state.Unlock()
 
-	change := m.state.NewChange("install-charm", fmt.Sprintf("Install charm %q", charm))
-	fetch := m.state.NewTask(FetchCharmTask, fmt.Sprintf("Fetch charm %q", charm))
-	install := m.state.NewTask(InstallCharmTask, fmt.Sprintf("Install charm %q", charm))
+	change := m.state.NewChange("install-charm", fmt.Sprintf("Install charm %q", request.Name))
+	fetch := m.state.NewTask(FetchCharmTask, fmt.Sprintf("Fetch charm %q", request.Name))
+	install := m.state.NewTask(InstallCharmTask, fmt.Sprintf("Install charm %q", request.Name))
 
-	fetch.Set(charmNameKey, charm)
-	install.Set(charmNameKey, charm)
+	fetch.Set(charmNameKey, request.Name)
+	install.Set(charmNameKey, request.Name)
+	fetch.Set("charm-download-request", request)
+	install.Set("charm-download-request", request)
 
 	install.WaitFor(fetch)
 

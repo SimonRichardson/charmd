@@ -143,7 +143,10 @@ func (cs *changeSuite) TestNewTaskAddTaskAndTasks(c *tc.C) {
 	c.Check(t2.Change(), tc.Equals, chg)
 
 	chg2 := st.NewChange("install", "...")
-	c.Check(func() { chg2.AddTask(t1) }, tc.PanicMatches, `internal error: cannot add one "download" task to multiple changes`)
+	c.Check(
+		func() { chg2.AddTask(t1) }, tc.PanicMatches,
+		`internal error: cannot add one "download" task to multiple changes`,
+	)
 }
 
 func (cs *changeSuite) TestAddAll(c *tc.C) {
@@ -412,7 +415,10 @@ func (cs *changeSuite) TestErr(c *tc.C) {
 	c.Assert(chg.Err(), tc.IsNil)
 
 	t2.SetStatus(state.ErrorStatus)
-	c.Assert(chg.Err(), tc.ErrorMatches, `internal inconsistency: change "install" in ErrorStatus with no task errors logged`)
+	c.Assert(
+		chg.Err(), tc.ErrorMatches,
+		`internal inconsistency: change "install" in ErrorStatus with no task errors logged`,
+	)
 
 	t1.Errorf("Download error")
 	c.Assert(chg.Err(), tc.ErrorMatches, ""+

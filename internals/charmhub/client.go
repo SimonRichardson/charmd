@@ -110,7 +110,9 @@ func newInstanceKey() (string, error) {
 	return hex.EncodeToString(key[:]), nil
 }
 
-func (c *Client) downloadRequest(ctx context.Context, charm, instanceKey string, options DownloadOptions) (*http.Request, error) {
+func (c *Client) downloadRequest(
+	ctx context.Context, charm, instanceKey string, options DownloadOptions,
+) (*http.Request, error) {
 	body, err := json.Marshal(refreshRequest{
 		Context: []any{},
 		Actions: []refreshAction{{
@@ -144,7 +146,10 @@ func (c *Client) refresh(request *http.Request) (refreshResponse, error) {
 
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		data, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
-		return refreshResponse{}, fmt.Errorf("refresh charm: unexpected HTTP status %s: %s", response.Status, strings.TrimSpace(string(data)))
+		return refreshResponse{}, fmt.Errorf(
+			"refresh charm: unexpected HTTP status %s: %s",
+			response.Status, strings.TrimSpace(string(data)),
+		)
 	}
 
 	var result refreshResponse
@@ -164,7 +169,10 @@ func downloadFromRefresh(instanceKey string, response refreshResponse) (Download
 
 	refresh := response.Results[0]
 	if refresh.InstanceKey != instanceKey {
-		return Download{}, fmt.Errorf("refresh charm: response instance key %q does not match %q", refresh.InstanceKey, instanceKey)
+		return Download{}, fmt.Errorf(
+			"refresh charm: response instance key %q does not match %q",
+			refresh.InstanceKey, instanceKey,
+		)
 	}
 	if refresh.Result != "download" {
 		return Download{}, fmt.Errorf("refresh charm: unexpected result %q", refresh.Result)

@@ -31,7 +31,9 @@ func (suite *managerSuite) TestNewManager(c *tc.C) {
 	r := state.NewTaskRunner(st)
 	c.Check(NewManager(st, r, client), tc.NotNil)
 	got := r.KnownTaskKinds()
-	c.Check(reflect.DeepEqual(got, []string{FetchCharmTask, InstallCharmTask}) || reflect.DeepEqual(got, []string{InstallCharmTask, FetchCharmTask}), tc.Equals, true)
+	knownKinds := reflect.DeepEqual(got, []string{FetchCharmTask, InstallCharmTask}) ||
+		reflect.DeepEqual(got, []string{InstallCharmTask, FetchCharmTask})
+	c.Check(knownKinds, tc.Equals, true)
 }
 
 func (suite *managerSuite) TestInstallCreatesDependentTasks(c *tc.C) {
@@ -39,7 +41,7 @@ func (suite *managerSuite) TestInstallCreatesDependentTasks(c *tc.C) {
 	r := state.NewTaskRunner(st)
 	manager := NewManager(st, r, newCharmAPI(c))
 
-	change, err := manager.Install("postgresql-k8s")
+	change, err := manager.Install(charmapi.DownloadRequest{Name: "postgresql-k8s"})
 	c.Assert(err, tc.IsNil)
 
 	st.Lock()
@@ -62,7 +64,7 @@ func (suite *managerSuite) TestInstallRequiresCharmName(c *tc.C) {
 	st := state.New(nil)
 	manager := NewManager(st, state.NewTaskRunner(st), newCharmAPI(c))
 	for _, charm := range []string{"", " \t", "\n"} {
-		_, err := manager.Install(charm)
+		_, err := manager.Install(charmapi.DownloadRequest{Name: charm})
 		c.Check(err, tc.NotNil, tc.Commentf("charm %q", charm))
 	}
 
@@ -77,7 +79,7 @@ func (suite *managerSuite) TestInstallTasksExecuteInOrder(c *tc.C) {
 	r := state.NewTaskRunner(st)
 	defer r.Stop()
 	manager := NewManager(st, r, newCharmAPI(c))
-	change, err := manager.Install("postgresql-k8s")
+	change, err := manager.Install(charmapi.DownloadRequest{Name: "postgresql-k8s"})
 	c.Assert(err, tc.IsNil)
 
 	c.Assert(r.Ensure(), tc.IsNil)
@@ -98,7 +100,7 @@ func (suite *managerSuite) TestInstallTasksExecuteInOrder(c *tc.C) {
 	c.Check(change.Err(), tc.IsNil)
 }
 
-func newCharmAPI(c *tc.C) *charmapi.Client {
+func newCharmAPI(c *tc.C) charmapi.CharmClient {
 	client, err := charmapi.New(config.Endpoint{URL: "https://agent.example.test"})
 	c.Assert(err, tc.IsNil)
 	return client

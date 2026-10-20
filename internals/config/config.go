@@ -21,9 +21,10 @@ type Services struct {
 	CharmAPI Endpoint `yaml:"charm-api"`
 }
 
-// Endpoint optionally identifies a remote HTTP API.
+// Endpoint identifies a charm API backend and its optional HTTP endpoint.
 type Endpoint struct {
-	URL string `yaml:"url"`
+	Type string `yaml:"type"`
+	URL  string `yaml:"url"`
 }
 
 // Load reads and validates configuration from path.
@@ -52,10 +53,17 @@ func Decode(r io.Reader) (*Config, error) {
 
 // Validate ensures configured endpoints are usable by charmd.
 func (c *Config) Validate() error {
-	if c.Services.CharmAPI.URL == "" {
+	endpoint := c.Services.CharmAPI
+	if endpoint.Type != "" && endpoint.Type != "charmhub" && endpoint.Type != "juju" {
+		return fmt.Errorf("services.charm-api.type: must be charmhub or juju")
+	}
+	if endpoint.Type == "juju" && endpoint.URL == "" {
+		return fmt.Errorf("services.charm-api.url: is required for juju")
+	}
+	if endpoint.URL == "" {
 		return nil
 	}
-	if err := ValidateEndpoint(c.Services.CharmAPI); err != nil {
+	if err := ValidateEndpoint(endpoint); err != nil {
 		return fmt.Errorf("services.charm-api.url: %w", err)
 	}
 	return nil

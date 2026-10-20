@@ -35,7 +35,10 @@ func (s *clientSuite) TestDownload(c *tc.C) {
 		c.Check(body.Actions[0].Channel, tc.Equals, "14/stable")
 		c.Check(body.Fields, tc.DeepEquals, []string{"download"})
 
-		_, err := fmt.Fprintf(w, `{"results":[{"instance-key":%q,"result":"download","charm":{"download":{"url":"https://downloads.example.test/postgresql-k8s.charm","hash-sha-256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}}}]}`, body.Actions[0].InstanceKey)
+		response := `{"results":[{"instance-key":%q,"result":"download",` +
+			`"charm":{"download":{"url":"https://downloads.example.test/postgresql-k8s.charm",` +
+			`"hash-sha-256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}}}]}`
+		_, err := fmt.Fprintf(w, response, body.Actions[0].InstanceKey)
 		c.Check(err, tc.IsNil)
 	}))
 	defer server.Close()
@@ -100,9 +103,19 @@ func (s *clientSuite) TestDownloadRejectsInvalidResponses(c *tc.C) {
 		body func(string) string
 		want string
 	}{
-		{name: "no results", body: func(string) string { return `{}` }, want: "expected one result, got 0"},
-		{name: "multiple results", body: func(string) string { return `{"results":[{},{}]}` }, want: "expected one result, got 2"},
-		{name: "different instance key", body: func(string) string { return `{"results":[{"instance-key":"other","result":"download"}]}` }, want: `response instance key "other" does not match`},
+		{
+			name: "no results", body: func(string) string { return `{}` },
+			want: "expected one result, got 0",
+		},
+		{
+			name: "multiple results", body: func(string) string { return `{"results":[{},{}]}` },
+			want: "expected one result, got 2",
+		},
+		{
+			name: "different instance key",
+			body: func(string) string { return `{"results":[{"instance-key":"other","result":"download"}]}` },
+			want: `response instance key "other" does not match`,
+		},
 		{name: "unexpected result", body: func(key string) string {
 			return fmt.Sprintf(`{"results":[{"instance-key":%q,"result":"install"}]}`, key)
 		}, want: `unexpected result "install"`},
@@ -110,9 +123,17 @@ func (s *clientSuite) TestDownloadRejectsInvalidResponses(c *tc.C) {
 			return fmt.Sprintf(`{"results":[{"instance-key":%q,"result":"download","charm":{"download":{}}}]}`, key)
 		}, want: `invalid download URL ""`},
 		{name: "invalid checksum", body: func(key string) string {
-			return fmt.Sprintf(`{"results":[{"instance-key":%q,"result":"download","charm":{"download":{"url":"https://downloads.example.test/charm","hash-sha-256":"bad"}}}]}`, key)
+			return fmt.Sprintf(
+				`{"results":[{"instance-key":%q,"result":"download",`+
+					`"charm":{"download":{"url":"https://downloads.example.test/charm",`+
+					`"hash-sha-256":"bad"}}}]}`,
+				key,
+			)
 		}, want: `invalid SHA-256 checksum "bad"`},
-		{name: "API error", body: func(string) string { return `{"error-list":[{"message":"charm not found"}]}` }, want: "charm not found"},
+		{
+			name: "API error", body: func(string) string { return `{"error-list":[{"message":"charm not found"}]}` },
+			want: "charm not found",
+		},
 	}
 
 	for _, test := range tests {

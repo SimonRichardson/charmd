@@ -326,7 +326,11 @@ func (s *CharmdSuite) TestNoticesJSON(c *tc.C) {
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices", "--format", "json"})
 	c.Assert(err, tc.IsNil)
 	c.Check(rest, tc.HasLen, 0)
-	c.Check(s.Stdout(), tc.Equals, `{"notices":[{"id":"1","user-id":1000,"type":"custom","key":"a.b/c","first-occurred":"2023-09-05T17:18:00Z","last-occurred":"2023-09-05T19:18:00Z","last-repeated":"2023-09-05T18:18:00Z","occurrences":3,"last-data":{"k":"v"},"repeat-after":"1h0m0s","expire-after":"168h0m0s"}]}`+"\n")
+	expected := `{"notices":[{"id":"1","user-id":1000,"type":"custom","key":"a.b/c",` +
+		`"first-occurred":"2023-09-05T17:18:00Z","last-occurred":"2023-09-05T19:18:00Z",` +
+		`"last-repeated":"2023-09-05T18:18:00Z","occurrences":3,"last-data":{"k":"v"},` +
+		`"repeat-after":"1h0m0s","expire-after":"168h0m0s"}]}` + "\n"
+	c.Check(s.Stdout(), tc.Equals, expected)
 	c.Check(s.Stderr(), tc.Equals, "")
 
 	cliState := s.readNoticesCLIState(c)

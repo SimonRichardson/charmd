@@ -14,8 +14,11 @@ type configSuite struct{}
 var _ = tc.InternalSuite(&configSuite{})
 
 func (s *configSuite) TestDecode(c *tc.C) {
-	config, err := Decode(strings.NewReader("services:\n  charm-api:\n    url: https://agent.example.test/charm\n"))
+	rawConfig := "services:\n  charm-api:\n    type: juju\n" +
+		"    url: https://agent.example.test/charm\n"
+	config, err := Decode(strings.NewReader(rawConfig))
 	c.Assert(err, tc.IsNil)
+	c.Check(config.Services.CharmAPI.Type, tc.Equals, "juju")
 	c.Check(config.Services.CharmAPI.URL, tc.Equals, "https://agent.example.test/charm")
 }
 
@@ -38,8 +41,18 @@ func (s *configSuite) TestDecodeRejectsInvalidCharmAPI(c *tc.C) {
 		want   string
 	}{
 		{name: "relative", config: "services:\n  charm-api:\n    url: /v1/charms\n", want: "must use http or https"},
-		{name: "credentials", config: "services:\n  charm-api:\n    url: https://user:password@agent.example.test\n", want: "must not include user credentials"},
-		{name: "unknown field", config: "services:\n  charm-api:\n    endpoint: https://agent.example.test\n", want: "field endpoint not found"},
+		{
+			name: "credentials", config: "services:\n  charm-api:\n" +
+				"    url: https://user:password@agent.example.test\n",
+			want: "must not include user credentials",
+		},
+		{name: "unknown backend", config: "services:\n  charm-api:\n    type: other\n", want: "must be charmhub or juju"},
+		{name: "Juju without URL", config: "services:\n  charm-api:\n    type: juju\n", want: "is required for juju"},
+		{
+			name: "unknown field", config: "services:\n  charm-api:\n" +
+				"    endpoint: https://agent.example.test\n",
+			want: "field endpoint not found",
+		},
 	}
 	for _, test := range tests {
 		_, err := Decode(strings.NewReader(test.config))

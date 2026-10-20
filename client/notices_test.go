@@ -247,14 +247,21 @@ func (cs *clientSuite) TestNoticeMarshalJSON(c *tc.C) {
 	}
 	data, err := json.Marshal(notice)
 	c.Assert(err, tc.IsNil)
-	c.Check(string(data), tc.Equals, `{"id":"123","user-id":1000,"type":"custom","key":"a.b/c","first-occurred":"2023-09-05T15:43:00Z","last-occurred":"2023-09-05T17:43:00Z","last-repeated":"2023-09-05T16:43:00Z","occurrences":7,"last-data":{"k":"v"},"repeat-after":"1h0m0s","expire-after":"168h0m0s"}`)
+	expectedJSON := `{"id":"123","user-id":1000,"type":"custom","key":"a.b/c",` +
+		`"first-occurred":"2023-09-05T15:43:00Z","last-occurred":"2023-09-05T17:43:00Z",` +
+		`"last-repeated":"2023-09-05T16:43:00Z","occurrences":7,"last-data":{"k":"v"},` +
+		`"repeat-after":"1h0m0s","expire-after":"168h0m0s"}`
+	c.Check(string(data), tc.Equals, expectedJSON)
 
 	notice.RepeatAfter = 0
 	notice.ExpireAfter = 0
 	notice.LastData = nil
 	data, err = json.Marshal(notice)
 	c.Assert(err, tc.IsNil)
-	c.Check(string(data), tc.Equals, `{"id":"123","user-id":1000,"type":"custom","key":"a.b/c","first-occurred":"2023-09-05T15:43:00Z","last-occurred":"2023-09-05T17:43:00Z","last-repeated":"2023-09-05T16:43:00Z","occurrences":7}`)
+	expectedJSON = `{"id":"123","user-id":1000,"type":"custom","key":"a.b/c",` +
+		`"first-occurred":"2023-09-05T15:43:00Z","last-occurred":"2023-09-05T17:43:00Z",` +
+		`"last-repeated":"2023-09-05T16:43:00Z","occurrences":7}`
+	c.Check(string(data), tc.Equals, expectedJSON)
 }
 
 func (cs *clientSuite) TestNoticeMarshalYAML(c *tc.C) {

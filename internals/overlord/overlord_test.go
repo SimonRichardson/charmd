@@ -39,7 +39,7 @@ func (s *overlordSuite) TestCharmInstallChangeSurvivesRestart(c *tc.C) {
 	opts := &overlord.Options{StatePath: statePath, CharmAPI: charmAPI}
 	o, err := overlord.New(opts)
 	c.Assert(err, tc.IsNil)
-	change, err := o.CharmManager().Install("postgresql-k8s")
+	change, err := o.CharmManager().Install(charmapi.DownloadRequest{Name: "postgresql-k8s"})
 	c.Assert(err, tc.IsNil)
 	changeID := change.ID()
 	o.Stop()

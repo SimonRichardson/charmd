@@ -717,7 +717,10 @@ func noticeToMap(c *tc.C, notice *state.Notice) map[string]any {
 	return n
 }
 
-func addNotice(c *tc.C, st *state.State, userID *uint32, noticeType state.NoticeType, key string, options *state.AddNoticeOptions) {
+func addNotice(
+	c *tc.C, st *state.State, userID *uint32, noticeType state.NoticeType,
+	key string, options *state.AddNoticeOptions,
+) {
 	_, err := st.AddNotice(userID, noticeType, key, options)
 	c.Assert(err, tc.IsNil)
 }

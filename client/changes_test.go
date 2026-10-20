@@ -33,7 +33,10 @@ func (cs *clientSuite) TestClientChange(c *tc.C) {
   "ready": false,
   "spawn-time": "2016-04-21T01:02:03Z",
   "ready-time": "2016-04-21T01:02:04Z",
-  "tasks": [{"kind": "bar", "summary": "...", "status": "Do", "progress": {"done": 0, "total": 1}, "spawn-time": "2016-04-21T01:02:03Z", "ready-time": "2016-04-21T01:02:04Z"}]
+  "tasks": [{
+    "kind": "bar", "summary": "...", "status": "Do", "progress": {"done": 0, "total": 1},
+    "spawn-time": "2016-04-21T01:02:03Z", "ready-time": "2016-04-21T01:02:04Z"
+  }]
 }}`
 
 	chg, err := cs.cli.Change("uno")
@@ -66,7 +69,10 @@ func (cs *clientSuite) TestClientWaitChange(c *tc.C) {
   "ready": false,
   "spawn-time": "2016-04-21T01:02:03Z",
   "ready-time": "2016-04-21T01:02:04Z",
-  "tasks": [{"kind": "bar", "summary": "...", "status": "Do", "progress": {"done": 0, "total": 1}, "spawn-time": "2016-04-21T01:02:03Z", "ready-time": "2016-04-21T01:02:04Z"}]
+  "tasks": [{
+    "kind": "bar", "summary": "...", "status": "Do", "progress": {"done": 0, "total": 1},
+    "spawn-time": "2016-04-21T01:02:03Z", "ready-time": "2016-04-21T01:02:04Z"
+  }]
 }}`
 
 	chg, err := cs.cli.WaitChange("foo", nil)
@@ -146,7 +152,10 @@ func (cs *clientSuite) TestClientChangeError(c *tc.C) {
   "summary": "...",
   "status": "Error",
   "ready": true,
-  "tasks": [{"kind": "bar", "summary": "...", "status": "Error", "progress": {"done": 1, "total": 1}, "log": ["ERROR: something broke"]}],
+  "tasks": [{
+    "kind": "bar", "summary": "...", "status": "Error", "progress": {"done": 1, "total": 1},
+    "log": ["ERROR: something broke"]
+  }],
   "err": "error message"
 }}`
 
@@ -203,7 +212,10 @@ func (cs *clientSuite) TestClientChanges(c *tc.C) {
 			Kind:    "foo",
 			Summary: "...",
 			Status:  "Do",
-			Tasks:   []*client.Task{{Kind: "bar", Summary: "...", Status: "Do", Progress: client.TaskProgress{Done: 0, Total: 1}}},
+			Tasks: []*client.Task{{
+				Kind: "bar", Summary: "...", Status: "Do",
+				Progress: client.TaskProgress{Done: 0, Total: 1},
+			}},
 		}})
 		if i == nil {
 			c.Check(cs.req.URL.RawQuery, tc.Equals, "")

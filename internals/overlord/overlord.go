@@ -19,7 +19,7 @@ type Options struct {
 	// StatePath is the path to the persistent state checkpoint.
 	StatePath string
 	// CharmAPI accesses the configured charm API.
-	CharmAPI *charmapi.Client
+	CharmAPI charmapi.CharmClient
 }
 
 // Overlord owns the sole State and coordinates managers and the shared task runner.

@@ -4,143 +4,102 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/canonical/tc"
+
 	"github.com/SimonRichardson/charmd/internals/charmapi"
 	"github.com/SimonRichardson/charmd/internals/config"
 	"github.com/SimonRichardson/charmd/internals/overlord/state"
 )
 
-func TestNewManagerRequiresCharmAPI(t *testing.T) {
+func Test(t *testing.T) { tc.InternalTestingT(t) }
+
+type managerSuite struct{}
+
+var _ = tc.InternalSuite(&managerSuite{})
+
+func (s *managerSuite) TestNewManagerRequiresCharmAPI(c *tc.C) {
 	defer func() {
-		if recover() == nil {
-			t.Fatal("NewManager did not panic without a charm API client")
-		}
+		c.Check(recover(), tc.NotNil)
 	}()
 	NewManager(state.New(nil), state.NewTaskRunner(state.New(nil)), nil)
 }
 
-func TestNewManager(t *testing.T) {
+func (suite *managerSuite) TestNewManager(c *tc.C) {
 	client, err := charmapi.New(config.Endpoint{URL: "https://agent.example.test"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := state.New(nil)
-	r := state.NewTaskRunner(s)
-	if manager := NewManager(s, r, client); manager == nil {
-		t.Fatal("NewManager returned nil")
-	}
-	if got, want := r.KnownTaskKinds(), []string{FetchCharmTask, InstallCharmTask}; !reflect.DeepEqual(got, want) && !reflect.DeepEqual(got, []string{InstallCharmTask, FetchCharmTask}) {
-		t.Fatalf("KnownTaskKinds() = %v, want %v", got, want)
-	}
+	c.Assert(err, tc.IsNil)
+	st := state.New(nil)
+	r := state.NewTaskRunner(st)
+	c.Check(NewManager(st, r, client), tc.NotNil)
+	got := r.KnownTaskKinds()
+	c.Check(reflect.DeepEqual(got, []string{FetchCharmTask, InstallCharmTask}) || reflect.DeepEqual(got, []string{InstallCharmTask, FetchCharmTask}), tc.Equals, true)
 }
 
-func TestInstallCreatesDependentTasks(t *testing.T) {
-	s := state.New(nil)
-	r := state.NewTaskRunner(s)
-	manager := NewManager(s, r, newCharmAPI(t))
+func (suite *managerSuite) TestInstallCreatesDependentTasks(c *tc.C) {
+	st := state.New(nil)
+	r := state.NewTaskRunner(st)
+	manager := NewManager(st, r, newCharmAPI(c))
 
 	change, err := manager.Install("postgresql-k8s")
-	if err != nil {
-		t.Fatal(err)
-	}
+	c.Assert(err, tc.IsNil)
 
-	s.Lock()
-	defer s.Unlock()
-	if got, want := change.Kind(), "install-charm"; got != want {
-		t.Fatalf("change kind = %q, want %q", got, want)
-	}
+	st.Lock()
+	defer st.Unlock()
+	c.Check(change.Kind(), tc.Equals, "install-charm")
 	tasks := change.Tasks()
-	if len(tasks) != 2 {
-		t.Fatalf("task count = %d, want 2", len(tasks))
-	}
-	if got, want := tasks[0].Kind(), FetchCharmTask; got != want {
-		t.Fatalf("first task kind = %q, want %q", got, want)
-	}
-	if got, want := tasks[1].Kind(), InstallCharmTask; got != want {
-		t.Fatalf("second task kind = %q, want %q", got, want)
-	}
-	if got := tasks[1].WaitTasks(); !reflect.DeepEqual(got, []*state.Task{tasks[0]}) {
-		t.Fatalf("install dependencies = %v, want fetch task", got)
-	}
-	if err := change.CheckTaskDependencies(); err != nil {
-		t.Fatalf("task dependencies are invalid: %v", err)
-	}
+	c.Assert(tasks, tc.HasLen, 2)
+	c.Check(tasks[0].Kind(), tc.Equals, FetchCharmTask)
+	c.Check(tasks[1].Kind(), tc.Equals, InstallCharmTask)
+	c.Check(tasks[1].WaitTasks(), tc.DeepEquals, []*state.Task{tasks[0]})
+	c.Check(change.CheckTaskDependencies(), tc.IsNil)
 	for _, task := range tasks {
 		var charm string
-		if err := task.Get(charmNameKey, &charm); err != nil {
-			t.Fatal(err)
-		}
-		if charm != "postgresql-k8s" {
-			t.Fatalf("task charm = %q, want postgresql-k8s", charm)
-		}
+		c.Assert(task.Get(charmNameKey, &charm), tc.IsNil)
+		c.Check(charm, tc.Equals, "postgresql-k8s")
 	}
 }
 
-func TestInstallRequiresCharmName(t *testing.T) {
-	s := state.New(nil)
-	manager := NewManager(s, state.NewTaskRunner(s), newCharmAPI(t))
+func (suite *managerSuite) TestInstallRequiresCharmName(c *tc.C) {
+	st := state.New(nil)
+	manager := NewManager(st, state.NewTaskRunner(st), newCharmAPI(c))
 	for _, charm := range []string{"", " \t", "\n"} {
-		if _, err := manager.Install(charm); err == nil {
-			t.Errorf("Install(%q) succeeded", charm)
-		}
+		_, err := manager.Install(charm)
+		c.Check(err, tc.NotNil, tc.Commentf("charm %q", charm))
 	}
 
-	s.Lock()
-	defer s.Unlock()
-	if got := len(s.Changes()); got != 0 {
-		t.Fatalf("change count = %d, want 0", got)
-	}
-	if got := s.TaskCount(); got != 0 {
-		t.Fatalf("task count = %d, want 0", got)
-	}
+	st.Lock()
+	defer st.Unlock()
+	c.Check(st.Changes(), tc.HasLen, 0)
+	c.Check(st.TaskCount(), tc.Equals, 0)
 }
 
-func TestInstallTasksExecuteInOrder(t *testing.T) {
-	s := state.New(nil)
-	r := state.NewTaskRunner(s)
+func (suite *managerSuite) TestInstallTasksExecuteInOrder(c *tc.C) {
+	st := state.New(nil)
+	r := state.NewTaskRunner(st)
 	defer r.Stop()
-	manager := NewManager(s, r, newCharmAPI(t))
+	manager := NewManager(st, r, newCharmAPI(c))
 	change, err := manager.Install("postgresql-k8s")
-	if err != nil {
-		t.Fatal(err)
-	}
+	c.Assert(err, tc.IsNil)
 
-	if err := r.Ensure(); err != nil {
-		t.Fatal(err)
-	}
+	c.Assert(r.Ensure(), tc.IsNil)
 	r.Wait()
 
-	s.Lock()
+	st.Lock()
 	tasks := change.Tasks()
-	if got, want := tasks[0].Status(), state.DoneStatus; got != want {
-		s.Unlock()
-		t.Fatalf("fetch status after first ensure = %s, want %s", got, want)
-	}
-	if got, want := tasks[1].Status(), state.DoStatus; got != want {
-		s.Unlock()
-		t.Fatalf("install status after first ensure = %s, want %s", got, want)
-	}
-	s.Unlock()
+	c.Check(tasks[0].Status(), tc.Equals, state.DoneStatus)
+	c.Check(tasks[1].Status(), tc.Equals, state.DoStatus)
+	st.Unlock()
 
-	if err := r.Ensure(); err != nil {
-		t.Fatal(err)
-	}
+	c.Assert(r.Ensure(), tc.IsNil)
 	r.Wait()
 
-	s.Lock()
-	defer s.Unlock()
-	if !change.Status().Ready() {
-		t.Fatal("change did not complete")
-	}
-	if err := change.Err(); err != nil {
-		t.Fatal(err)
-	}
+	st.Lock()
+	defer st.Unlock()
+	c.Check(change.Status().Ready(), tc.Equals, true)
+	c.Check(change.Err(), tc.IsNil)
 }
 
-func newCharmAPI(t *testing.T) *charmapi.Client {
-	t.Helper()
+func newCharmAPI(c *tc.C) *charmapi.Client {
 	client, err := charmapi.New(config.Endpoint{URL: "https://agent.example.test"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	c.Assert(err, tc.IsNil)
 	return client
 }

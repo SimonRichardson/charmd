@@ -29,32 +29,47 @@ import (
 var Stdout io.Writer = os.Stdout
 var Stderr io.Writer = os.Stderr
 
+const charmdEnv = "CHARMD"
+const defaultCharmdDir = "/var/lib/charmd/default"
+
 // Run is the command entry point used by the charmd binary.
 func Run(args []string) error {
 	if args == nil {
 		args = os.Args[1:]
 	}
-	dir := os.Getenv("CHARMD_STATE_DIR")
-	if dir == "" {
-		dir = "."
-	}
-	socketPath := filepath.Join(dir, "charmd.sock")
+	paths := runtimePaths()
 	if len(args) > 0 {
-		api, err := client.New(&client.Config{Socket: socketPath})
+		api, err := client.New(&client.Config{Socket: paths.socket})
 		if err != nil {
 			return err
 		}
-		return RunWithSocket(args, api, socketPath, Stdout, Stderr)
+		return RunWithSocket(args, api, paths.socket, Stdout, Stderr)
 	}
-	configPath := os.Getenv("CHARMD_CONFIG")
-	if configPath == "" {
-		configPath = filepath.Join(dir, "config.yaml")
-	}
-	return runDaemon(dir, socketPath, configPath)
+	return runDaemon(paths)
 }
 
-func runDaemon(dir, socketPath, configPath string) error {
-	runtimeConfig, err := config.Load(configPath)
+type runtimePathSet struct {
+	dir    string
+	config string
+	socket string
+	state  string
+}
+
+func runtimePaths() runtimePathSet {
+	dir := defaultCharmdDir
+	if configuredDir := os.Getenv(charmdEnv); configuredDir != "" {
+		dir = configuredDir
+	}
+	return runtimePathSet{
+		dir:    dir,
+		config: filepath.Join(dir, "config.yaml"),
+		socket: filepath.Join(dir, "charmd.sock"),
+		state:  filepath.Join(dir, "state.json"),
+	}
+}
+
+func runDaemon(paths runtimePathSet) error {
+	runtimeConfig, err := config.Load(paths.config)
 	if err != nil {
 		return err
 	}
@@ -63,7 +78,7 @@ func runDaemon(dir, socketPath, configPath string) error {
 		return err
 	}
 	o, err := overlord.New(&overlord.Options{
-		StatePath: filepath.Join(dir, "state.json"),
+		StatePath: paths.state,
 		CharmAPI:  charmAPI,
 	})
 	if err != nil {
@@ -73,15 +88,15 @@ func runDaemon(dir, socketPath, configPath string) error {
 	if err := o.StartUp(); err != nil {
 		return err
 	}
-	if err := os.Remove(socketPath); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(paths.socket); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	listener, err := net.Listen("unix", socketPath)
+	listener, err := net.Listen("unix", paths.socket)
 	if err != nil {
 		return err
 	}
 	defer listener.Close()
-	defer os.Remove(socketPath)
+	defer os.Remove(paths.socket)
 	d := daemon.New(o)
 	server := &http.Server{Handler: d.Handler(), ConnContext: daemon.PeerContext}
 	defer server.Close()

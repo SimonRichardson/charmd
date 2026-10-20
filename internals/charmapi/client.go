@@ -1,4 +1,4 @@
-// Package charmapi provides the client for the Juju-provided charm API.
+// Package charmapi provides charmd's charm client.
 package charmapi
 
 import (
@@ -9,15 +9,19 @@ import (
 	"github.com/SimonRichardson/charmd/internals/config"
 )
 
-// Client is the typed dependency used by charm task handlers to access the
-// Juju-provided charm API.
+// Client is the typed dependency used by charm task handlers. It uses either
+// the internal charm client or a configured external API.
 type Client struct {
 	endpoint   *url.URL
 	httpClient *http.Client
 }
 
-// New constructs a charm API client from validated startup configuration.
+// New constructs a charm client from startup configuration. An empty endpoint
+// selects the internal charm client.
 func New(endpoint config.Endpoint) (*Client, error) {
+	if endpoint.URL == "" {
+		return NewInternal(), nil
+	}
 	if err := config.ValidateEndpoint(endpoint); err != nil {
 		return nil, fmt.Errorf("charm API endpoint: %w", err)
 	}
@@ -31,5 +35,16 @@ func New(endpoint config.Endpoint) (*Client, error) {
 	}, nil
 }
 
-// Endpoint returns the configured base URL for the charm API.
-func (c *Client) Endpoint() url.URL { return *c.endpoint }
+// NewInternal constructs the default internal charm client.
+func NewInternal() *Client {
+	return &Client{httpClient: &http.Client{}}
+}
+
+// Endpoint returns the configured external API base URL. It is empty when the
+// client uses charmd's internal charm client.
+func (c *Client) Endpoint() url.URL {
+	if c.endpoint == nil {
+		return url.URL{}
+	}
+	return *c.endpoint
+}

@@ -1,4 +1,4 @@
-// Package config loads the static configuration supplied by jujuagentd.
+// Package config loads charmd's static configuration.
 package config
 
 import (
@@ -16,12 +16,12 @@ type Config struct {
 	Services Services `yaml:"services"`
 }
 
-// Services names the APIs supplied by jujuagentd.
+// Services names the APIs charmd calls.
 type Services struct {
 	CharmAPI Endpoint `yaml:"charm-api"`
 }
 
-// Endpoint identifies a remote HTTP API.
+// Endpoint optionally identifies a remote HTTP API.
 type Endpoint struct {
 	URL string `yaml:"url"`
 }
@@ -50,8 +50,11 @@ func Decode(r io.Reader) (*Config, error) {
 	return &config, nil
 }
 
-// Validate ensures the configured endpoints are usable by charmd.
+// Validate ensures configured endpoints are usable by charmd.
 func (c *Config) Validate() error {
+	if c.Services.CharmAPI.URL == "" {
+		return nil
+	}
 	if err := ValidateEndpoint(c.Services.CharmAPI); err != nil {
 		return fmt.Errorf("services.charm-api.url: %w", err)
 	}

@@ -1,0 +1,3 @@
+services:
+  charm-api:
+    # Empty selects charmd's internal charm client.

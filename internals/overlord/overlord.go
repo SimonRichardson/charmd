@@ -18,7 +18,7 @@ import (
 type Options struct {
 	// StatePath is the path to the persistent state checkpoint.
 	StatePath string
-	// CharmAPI accesses the Juju-provided charm API.
+	// CharmAPI accesses the configured charm API.
 	CharmAPI *charmapi.Client
 }
 

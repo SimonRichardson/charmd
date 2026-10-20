@@ -76,13 +76,16 @@ func runDaemon(dir, socketPath string) error {
 	}
 	defer listener.Close()
 	defer os.Remove(socketPath)
-	server := &http.Server{Handler: daemon.New(o).Handler(), ConnContext: daemon.PeerContext}
+	d := daemon.New(o)
+	server := &http.Server{Handler: d.Handler(), ConnContext: daemon.PeerContext}
 	defer server.Close()
 	go server.Serve(listener)
+	d.Start()
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(signals)
 	<-signals
+	d.Stop()
 	return nil
 }
 

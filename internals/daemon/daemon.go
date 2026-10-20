@@ -3,6 +3,7 @@ package daemon
 
 import (
 	"net/http"
+	"sync/atomic"
 
 	"github.com/SimonRichardson/charmd/internals/overlord"
 )
@@ -38,6 +39,7 @@ func (c *Command) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type Daemon struct {
 	overlord *overlord.Overlord
 	router   *http.ServeMux
+	ready    atomic.Bool
 }
 
 // New creates a daemon and installs the registered API commands.
@@ -52,12 +54,36 @@ func (d *Daemon) Handler() http.Handler {
 	return d.router
 }
 
+// Start marks the daemon ready to accept and process requests.
+func (d *Daemon) Start() {
+	d.ready.Store(true)
+}
+
+// Stop marks the daemon unavailable before its HTTP server is shut down.
+func (d *Daemon) Stop() {
+	d.ready.Store(false)
+}
+
 func (d *Daemon) addRoutes() {
 	d.router = http.NewServeMux()
+	d.router.HandleFunc("GET /health", d.health)
+	d.router.HandleFunc("GET /ready", d.readiness)
 	for _, definition := range API {
 		command := *definition
 		command.d = d
 		d.router.Handle(command.Path, &command)
 	}
 	d.router.Handle("/", NotFound("invalid API endpoint requested"))
+}
+
+func (d *Daemon) health(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusOK)
+}
+
+func (d *Daemon) readiness(w http.ResponseWriter, _ *http.Request) {
+	if !d.ready.Load() {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }

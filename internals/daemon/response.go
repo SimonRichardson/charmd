@@ -12,6 +12,8 @@ type ResponseType string
 const (
 	// ResponseTypeSync indicates a successful synchronous result.
 	ResponseTypeSync ResponseType = "sync"
+	// ResponseTypeAsync indicates a successfully accepted asynchronous operation.
+	ResponseTypeAsync ResponseType = "async"
 	// ResponseTypeError indicates an API error.
 	ResponseTypeError ResponseType = "error"
 )
@@ -25,6 +27,7 @@ type response struct {
 	Type       ResponseType `json:"type"`
 	StatusText string       `json:"status,omitempty"`
 	Result     any          `json:"result,omitempty"`
+	Change     string       `json:"change,omitempty"`
 }
 
 func (r *response) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
@@ -36,6 +39,11 @@ func (r *response) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 // SyncResponse creates a successful synchronous API response.
 func SyncResponse(result any) Response {
 	return &response{Status: http.StatusOK, Type: ResponseTypeSync, Result: result}
+}
+
+// AsyncResponse creates a response for an accepted asynchronous change.
+func AsyncResponse(change string) Response {
+	return &response{Status: http.StatusAccepted, Type: ResponseTypeAsync, Change: change}
 }
 
 type errorResponder func(string, ...any) Response

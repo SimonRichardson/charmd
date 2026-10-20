@@ -71,7 +71,7 @@ func New(opts *Options) (*Overlord, error) {
 	}
 	o.engine = NewStateEngine(o.state)
 	o.runner = state.NewTaskRunner(o.state)
-	o.charmMgr = charmstate.NewManager(o.state, opts.CharmAPI)
+	o.charmMgr = charmstate.NewManager(o.state, o.runner, opts.CharmAPI)
 	o.engine.AddManager(o.charmMgr)
 	return o, nil
 }

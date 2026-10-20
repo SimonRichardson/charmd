@@ -2,6 +2,7 @@ package daemon
 
 // API lists the daemon endpoints included in this minimal implementation.
 var API = []*Command{
+	{Path: "/v1/charms", POST: v1PostCharms},
 	{Path: "/v1/changes", GET: v1GetChanges},
 	{Path: "/v1/changes/{id}", GET: v1GetChange, POST: v1PostChange},
 	{Path: "/v1/changes/{id}/wait", GET: v1GetChangeWait},

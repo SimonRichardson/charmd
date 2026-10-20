@@ -44,10 +44,6 @@ func New(path string) (*Overlord, error) {
 		}
 		o.state = state.New(backend)
 	} else {
-		data, err = prepareCheckpoint(data)
-		if err != nil {
-			return nil, err
-		}
 		o.state, err = state.ReadState(backend, bytes.NewReader(data))
 		if err != nil {
 			return nil, err

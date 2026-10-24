@@ -1,4 +1,3 @@
 services:
   charm-api:
-    type: charmhub
-    base: ubuntu@22.04/amd64
+    path: /var/lib/charmd/default/charm-source

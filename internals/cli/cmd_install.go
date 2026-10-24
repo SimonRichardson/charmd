@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/canonical/go-flags"
@@ -10,20 +11,15 @@ import (
 
 const cmdInstallSummary = "Install a charm"
 const cmdInstallDescription = `
-The install command creates a change that fetches and installs a charm.
-
-Use --revision and --channel to select a Charmhub archive. SHA-256 selection is
-available only through the HTTP API.
+The install command creates a change that fetches and installs a SHA-addressed
+charm archive.
 `
 
 type cmdInstall struct {
 	client *client.Client
 
-	Revision *int   `long:"revision" value-name:"REVISION"`
-	Channel  string `long:"channel" value-name:"CHANNEL"`
-
 	Positional struct {
-		Name string `positional-arg-name:"<charm-name>" required:"1"`
+		SHA256 string `positional-arg-name:"<sha256>" required:"1"`
 	} `positional-args:"yes"`
 }
 
@@ -32,10 +28,6 @@ func init() {
 		Name:        "install",
 		Summary:     cmdInstallSummary,
 		Description: cmdInstallDescription,
-		ArgsHelp: map[string]string{
-			"--revision": "Select a Charmhub revision",
-			"--channel":  "Select a Charmhub channel",
-		},
 		New: func(opts *CmdOptions) flags.Commander {
 			return &cmdInstall{client: opts.Client}
 		},
@@ -47,10 +39,14 @@ func (cmd *cmdInstall) Execute(args []string) error {
 	if len(args) > 0 {
 		return ErrExtraArgs
 	}
+	if len(cmd.Positional.SHA256) != 64 {
+		return fmt.Errorf("invalid SHA-256 checksum %q", cmd.Positional.SHA256)
+	}
+	if _, err := hex.DecodeString(cmd.Positional.SHA256); err != nil {
+		return fmt.Errorf("invalid SHA-256 checksum %q", cmd.Positional.SHA256)
+	}
 	change, err := cmd.client.InstallCharm(client.InstallCharmOptions{
-		Name:     cmd.Positional.Name,
-		Revision: cmd.Revision,
-		Channel:  cmd.Channel,
+		SHA256: cmd.Positional.SHA256,
 	})
 	if err != nil {
 		return err

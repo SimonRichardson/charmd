@@ -47,9 +47,8 @@ func (s *daemonSuite) TestPostCharmsCreatesInstallChange(c *tc.C) {
 	defer o.Stop()
 	d := New(o)
 	recorder := httptest.NewRecorder()
-	body := `{"action":"install","name":"postgresql-k8s",` +
-		`"sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",` +
-		`"revision":42,"channel":"14/stable"}`
+	body := `{"action":"install",` +
+		`"sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/charms", bytes.NewBufferString(body))
 	d.Handler().ServeHTTP(recorder, req)
 
@@ -74,17 +73,11 @@ func (s *daemonSuite) TestPostCharmsCreatesInstallChange(c *tc.C) {
 	c.Check(tasks[1].Kind(), tc.Equals, charmstate.InstallCharmTask)
 	c.Check(tasks[1].WaitTasks(), tc.DeepEquals, []*state.Task{tasks[0]})
 	for _, task := range tasks {
-		var request charmapi.DownloadRequest
-		c.Assert(task.Get("charm-download-request", &request), tc.IsNil)
-		c.Check(request, tc.DeepEquals, charmapi.DownloadRequest{
-			Name: "postgresql-k8s", SHA256: "0123456789abcdef0123456789abcdef" +
-				"0123456789abcdef0123456789abcdef",
-			Revision: daemonIntPtr(42), Channel: "14/stable",
-		})
+		var checksum string
+		c.Assert(task.Get("charm-sha256", &checksum), tc.IsNil)
+		c.Check(checksum, tc.Equals, "0123456789abcdef0123456789abcdef"+"0123456789abcdef0123456789abcdef")
 	}
 }
-
-func daemonIntPtr(value int) *int { return &value }
 
 func (s *daemonSuite) TestPostCharmsRejectsInvalidRequest(c *tc.C) {
 	o := newOverlord(c)
@@ -92,8 +85,8 @@ func (s *daemonSuite) TestPostCharmsRejectsInvalidRequest(c *tc.C) {
 	d := New(o)
 	for _, body := range []string{
 		`{"action":`,
-		`{"action":"remove","name":"postgresql-k8s"}`,
-		`{"action":"install","name":""}`,
+		`{"action":"remove","sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`,
+		`{"action":"install","sha256":"bad"}`,
 	} {
 		recorder := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/v1/charms", bytes.NewBufferString(body))

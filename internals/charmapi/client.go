@@ -1,156 +1,161 @@
-// Package charmapi provides configured charm download clients.
+// Package charmapi provides Charmd's SHA-addressed charm discovery clients.
 package charmapi
 
 import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
-	"github.com/SimonRichardson/charmd/internals/charmhub"
+	"gopkg.in/yaml.v3"
+
 	"github.com/SimonRichardson/charmd/internals/config"
-	"github.com/SimonRichardson/charmd/internals/juju"
 )
 
-const (
-	// BackendCharmhub selects Charmhub's refresh API.
-	BackendCharmhub = "charmhub"
-	// BackendJuju selects Juju's S3-compatible charm blob endpoint.
-	BackendJuju = "juju"
-)
-
-// DownloadRequest identifies the charm archive to fetch. The supported
-// selectors depend on the configured backend.
-type DownloadRequest struct {
-	// Name is the charm name used by backends that resolve charm metadata.
-	Name string
-	// SHA256 optionally constrains Charmhub and is required by Juju.
-	SHA256 string
-	// Revision optionally selects a Charmhub revision.
-	Revision *int
-	// Channel optionally selects a Charmhub channel.
-	Channel string
-}
-
-// DownloadInfo identifies a resolved charm archive and its expected checksum.
+// DownloadInfo identifies a discovered charm archive.
 type DownloadInfo struct {
-	// URL is the absolute archive URL returned by the selected backend.
-	URL string
-	// SHA256 is the expected archive SHA-256 checksum.
-	SHA256 string
+	Name        string         `json:"name" yaml:"name"`
+	SHA256      string         `json:"sha256" yaml:"sha256"`
+	DownloadURL string         `json:"download-url,omitempty" yaml:"download-url,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 }
 
-// CharmClient resolves charm archives and downloads verified archive files.
+// CharmClient discovers SHA-addressed charm archives and places them in the
+// Charmd archive cache.
 type CharmClient interface {
-	// GetCharmDownloadInfo resolves the requested charm to an archive URL and
-	// its expected SHA-256 checksum.
-	GetCharmDownloadInfo(ctx context.Context, request DownloadRequest) (DownloadInfo, error)
-	// DownloadCharm downloads downloadURL to destination and only replaces the
-	// destination when its SHA-256 checksum matches checksum.
-	DownloadCharm(ctx context.Context, downloadURL, checksum, destination string) error
+	// GetCharmDownloadInfo resolves sha256 to charm metadata and download details.
+	GetCharmDownloadInfo(ctx context.Context, sha256 string) (DownloadInfo, error)
+	// DownloadCharm places info's archive at destination and verifies its checksum.
+	DownloadCharm(ctx context.Context, info DownloadInfo, destination string) error
 }
 
-// New constructs the charm client selected by configuration. An omitted type
-// selects Charmhub.
+// New constructs a configured HTTP discovery client or a file-backed client.
 func New(endpoint config.Endpoint) (CharmClient, error) {
-	switch endpoint.Type {
-	case "", BackendCharmhub:
-		client, err := charmhub.New(&charmhub.Options{URL: endpoint.URL, Base: endpoint.Base})
+	if endpoint.URL != "" {
+		baseURL, err := url.Parse(endpoint.URL)
 		if err != nil {
-			return nil, fmt.Errorf("create Charmhub client: %w", err)
+			return nil, fmt.Errorf("parse charm API URL: %w", err)
 		}
-		return &charmhubClient{client: client, httpClient: http.DefaultClient}, nil
-	case BackendJuju:
-		if err := config.ValidateEndpoint(endpoint); err != nil {
-			return nil, fmt.Errorf("Juju endpoint: %w", err)
-		}
-		client, err := juju.New(&juju.Options{URL: endpoint.URL})
-		if err != nil {
-			return nil, fmt.Errorf("create Juju client: %w", err)
-		}
-		return &jujuCharmClient{client: client, httpClient: http.DefaultClient}, nil
-	default:
-		return nil, fmt.Errorf("unknown charm API type %q", endpoint.Type)
+		return &apiClient{baseURL: baseURL, httpClient: http.DefaultClient}, nil
 	}
+	return &fileClient{directory: endpoint.Path}, nil
 }
 
-type charmhubClient struct {
-	client     *charmhub.Client
+type apiClient struct {
+	baseURL    *url.URL
 	httpClient *http.Client
 }
 
-var _ CharmClient = (*charmhubClient)(nil)
+var _ CharmClient = (*apiClient)(nil)
 
-// GetCharmDownloadInfo resolves a Charmhub archive for request.
-func (c *charmhubClient) GetCharmDownloadInfo(
-	ctx context.Context, request DownloadRequest,
-) (DownloadInfo, error) {
-	download, err := c.client.Download(ctx, request.Name, charmhub.DownloadOptions{
-		Revision: request.Revision,
-		Channel:  request.Channel,
-	})
-	if err != nil {
+// GetCharmDownloadInfo retrieves discovery metadata from the configured service.
+func (c *apiClient) GetCharmDownloadInfo(ctx context.Context, checksum string) (DownloadInfo, error) {
+	if err := validateSHA256(checksum); err != nil {
 		return DownloadInfo{}, err
 	}
-	if request.SHA256 != "" && !strings.EqualFold(request.SHA256, download.SHA256) {
+	endpoint := *c.baseURL
+	endpoint.Path = path.Join(endpoint.Path, "v1", "charms", checksum)
+	endpoint.RawPath = ""
+	endpoint.RawQuery = ""
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+	if err != nil {
+		return DownloadInfo{}, fmt.Errorf("create charm discovery request: %w", err)
+	}
+	request.Header.Set("Accept", "application/json")
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return DownloadInfo{}, fmt.Errorf("get charm download info: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		data, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
 		return DownloadInfo{}, fmt.Errorf(
-			"Charmhub checksum %q does not match requested checksum %q",
-			download.SHA256, request.SHA256,
+			"get charm download info: unexpected HTTP status %s: %s",
+			response.Status, strings.TrimSpace(string(data)),
 		)
 	}
-	return DownloadInfo{URL: download.URL, SHA256: download.SHA256}, nil
-}
-
-// DownloadCharm downloads and verifies a Charmhub archive.
-func (c *charmhubClient) DownloadCharm(
-	ctx context.Context, downloadURL, checksum, destination string,
-) error {
-	return downloadCharm(ctx, c.httpClient, downloadURL, checksum, destination)
-}
-
-type jujuCharmClient struct {
-	client     *juju.Client
-	httpClient *http.Client
-}
-
-var _ CharmClient = (*jujuCharmClient)(nil)
-
-// GetCharmDownloadInfo resolves a Juju archive for request.
-func (c *jujuCharmClient) GetCharmDownloadInfo(
-	ctx context.Context, request DownloadRequest,
-) (DownloadInfo, error) {
-	download, err := c.client.Download(ctx, request.SHA256)
-	if err != nil {
-		return DownloadInfo{}, fmt.Errorf("Juju charm checksum: %w", err)
+	var info DownloadInfo
+	if err := json.NewDecoder(response.Body).Decode(&info); err != nil {
+		return DownloadInfo{}, fmt.Errorf("decode charm download info: %w", err)
 	}
-	return DownloadInfo{URL: download.URL, SHA256: download.SHA256}, nil
-}
-
-// DownloadCharm downloads and verifies a Juju archive.
-func (c *jujuCharmClient) DownloadCharm(
-	ctx context.Context, downloadURL, checksum, destination string,
-) error {
-	return downloadCharm(ctx, c.httpClient, downloadURL, checksum, destination)
-}
-
-func downloadCharm(ctx context.Context, client *http.Client, downloadURL, checksum, destination string) error {
-	if err := validateDownloadURL(downloadURL); err != nil {
-		return err
+	if info.SHA256 != checksum {
+		return DownloadInfo{}, fmt.Errorf(
+			"discovered checksum %q does not match requested checksum %q", info.SHA256, checksum,
+		)
 	}
+	if strings.TrimSpace(info.Name) == "" {
+		return DownloadInfo{}, fmt.Errorf("discovered charm name is required")
+	}
+	if err := validateDownloadURL(info.DownloadURL); err != nil {
+		return DownloadInfo{}, err
+	}
+	return info, nil
+}
+
+// DownloadCharm downloads a discovered archive into destination.
+func (c *apiClient) DownloadCharm(ctx context.Context, info DownloadInfo, destination string) error {
+	return downloadCharm(ctx, c.httpClient, info, destination)
+}
+
+type fileClient struct {
+	directory string
+}
+
+var _ CharmClient = (*fileClient)(nil)
+
+// GetCharmDownloadInfo reads the manifest beside a local SHA-addressed archive.
+func (c *fileClient) GetCharmDownloadInfo(_ context.Context, checksum string) (DownloadInfo, error) {
 	if err := validateSHA256(checksum); err != nil {
+		return DownloadInfo{}, err
+	}
+	data, err := os.ReadFile(filepath.Join(c.directory, checksum+".manifest"))
+	if err != nil {
+		return DownloadInfo{}, fmt.Errorf("read charm manifest: %w", err)
+	}
+	var info DownloadInfo
+	if err := yaml.Unmarshal(data, &info); err != nil {
+		return DownloadInfo{}, fmt.Errorf("decode charm manifest: %w", err)
+	}
+	if strings.TrimSpace(info.Name) == "" {
+		return DownloadInfo{}, fmt.Errorf("charm manifest name is required")
+	}
+	info.SHA256 = checksum
+	return info, nil
+}
+
+// DownloadCharm moves a local SHA-addressed archive into destination.
+func (c *fileClient) DownloadCharm(_ context.Context, info DownloadInfo, destination string) error {
+	if err := validateSHA256(info.SHA256); err != nil {
 		return err
 	}
 	if destination == "" {
 		return fmt.Errorf("charm download destination is required")
 	}
+	if err := os.Rename(filepath.Join(c.directory, info.SHA256), destination); err != nil {
+		return fmt.Errorf("move local charm archive: %w", err)
+	}
+	return nil
+}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
+func downloadCharm(ctx context.Context, client *http.Client, info DownloadInfo, destination string) error {
+	if err := validateSHA256(info.SHA256); err != nil {
+		return err
+	}
+	if err := validateDownloadURL(info.DownloadURL); err != nil {
+		return err
+	}
+	if destination == "" {
+		return fmt.Errorf("charm download destination is required")
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, info.DownloadURL, nil)
 	if err != nil {
 		return fmt.Errorf("create charm download request: %w", err)
 	}
@@ -162,14 +167,12 @@ func downloadCharm(ctx context.Context, client *http.Client, downloadURL, checks
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		return fmt.Errorf("download charm: unexpected HTTP status %s", response.Status)
 	}
-
 	temporary, err := os.CreateTemp(filepath.Dir(destination), "."+filepath.Base(destination)+"-")
 	if err != nil {
 		return fmt.Errorf("create temporary charm download: %w", err)
 	}
 	temporaryPath := temporary.Name()
 	defer os.Remove(temporaryPath)
-
 	digest := sha256.New()
 	if _, err := io.Copy(io.MultiWriter(temporary, digest), response.Body); err != nil {
 		temporary.Close()
@@ -178,19 +181,11 @@ func downloadCharm(ctx context.Context, client *http.Client, downloadURL, checks
 	if err := temporary.Close(); err != nil {
 		return fmt.Errorf("close charm download: %w", err)
 	}
-	if !strings.EqualFold(hex.EncodeToString(digest.Sum(nil)), checksum) {
-		return fmt.Errorf("downloaded charm checksum does not match %q", checksum)
+	if !strings.EqualFold(hex.EncodeToString(digest.Sum(nil)), info.SHA256) {
+		return fmt.Errorf("downloaded charm checksum does not match %q", info.SHA256)
 	}
 	if err := os.Rename(temporaryPath, destination); err != nil {
 		return fmt.Errorf("store charm download: %w", err)
-	}
-	return nil
-}
-
-func validateDownloadURL(rawURL string) error {
-	u, err := url.Parse(rawURL)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return fmt.Errorf("invalid charm download URL %q", rawURL)
 	}
 	return nil
 }
@@ -201,6 +196,14 @@ func validateSHA256(checksum string) error {
 	}
 	if _, err := hex.DecodeString(checksum); err != nil {
 		return fmt.Errorf("invalid SHA-256 checksum %q", checksum)
+	}
+	return nil
+}
+
+func validateDownloadURL(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return fmt.Errorf("invalid charm download URL %q", rawURL)
 	}
 	return nil
 }

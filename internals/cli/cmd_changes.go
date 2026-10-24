@@ -15,7 +15,7 @@ import (
 )
 
 const changesUsage = "usage: charmd changes\n       charmd tasks <change-id>\n" +
-	"       charmd install [--revision REVISION] [--channel CHANNEL] <charm-name>\n" +
+	"       charmd install <sha256>\n" +
 	"       charmd notice|notices|okay\n"
 
 // RunWithClient parses and executes the supported changes commands through api.

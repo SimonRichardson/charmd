@@ -39,7 +39,7 @@ func (s *overlordSuite) TestCharmInstallChangeSurvivesRestart(c *tc.C) {
 	opts := &overlord.Options{StatePath: statePath, CharmAPI: charmAPI}
 	o, err := overlord.New(opts)
 	c.Assert(err, tc.IsNil)
-	change, err := o.CharmManager().Install(charmapi.DownloadRequest{Name: "postgresql-k8s"})
+	change, err := o.CharmManager().Install("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 	c.Assert(err, tc.IsNil)
 	changeID := change.ID()
 	o.Stop()
@@ -58,8 +58,8 @@ func (s *overlordSuite) TestCharmInstallChangeSurvivesRestart(c *tc.C) {
 	c.Assert(tasks, tc.HasLen, 2)
 	c.Check(tasks[1].WaitTasks(), tc.DeepEquals, []*state.Task{tasks[0]})
 	for _, task := range tasks {
-		var charm string
-		c.Assert(task.Get("charm-name", &charm), tc.IsNil)
-		c.Check(charm, tc.Equals, "postgresql-k8s")
+		var checksum string
+		c.Assert(task.Get("charm-sha256", &checksum), tc.IsNil)
+		c.Check(checksum, tc.Equals, "0123456789abcdef0123456789abcdef"+"0123456789abcdef0123456789abcdef")
 	}
 }

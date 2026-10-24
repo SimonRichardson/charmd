@@ -8,26 +8,17 @@ import (
 
 // InstallCharmOptions identifies the charm archive to install.
 type InstallCharmOptions struct {
-	// Name is the name of the charm to install.
-	Name string
-	// SHA256 optionally constrains Charmhub and is required by Juju.
+	// SHA256 identifies the charm archive to install.
 	SHA256 string
-	// Revision optionally selects a Charmhub revision.
-	Revision *int
-	// Channel optionally selects a Charmhub channel.
-	Channel string
 }
 
 // InstallCharm creates a change that fetches and installs a charm.
 func (client *Client) InstallCharm(options InstallCharmOptions) (string, error) {
 	payload := struct {
-		Action   string `json:"action"`
-		Name     string `json:"name"`
-		SHA256   string `json:"sha256,omitempty"`
-		Revision *int   `json:"revision,omitempty"`
-		Channel  string `json:"channel,omitempty"`
+		Action string `json:"action"`
+		SHA256 string `json:"sha256"`
 	}{
-		Action: "install", Name: options.Name, SHA256: options.SHA256, Revision: options.Revision, Channel: options.Channel,
+		Action: "install", SHA256: options.SHA256,
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {

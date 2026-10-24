@@ -12,10 +12,7 @@ func (cs *clientSuite) TestInstallCharm(c *tc.C) {
 	cs.rsp = `{"status-code":202,"type":"async","change":"1"}`
 
 	changeID, err := cs.cli.InstallCharm(client.InstallCharmOptions{
-		Name:     "postgresql-k8s",
-		SHA256:   "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-		Revision: clientIntPtr(42),
-		Channel:  "14/stable",
+		SHA256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 	})
 	c.Assert(err, tc.IsNil)
 	c.Check(changeID, tc.Equals, "1")
@@ -24,17 +21,14 @@ func (cs *clientSuite) TestInstallCharm(c *tc.C) {
 
 	body, err := io.ReadAll(cs.req.Body)
 	c.Assert(err, tc.IsNil)
-	expected := `{"action":"install","name":"postgresql-k8s",` +
-		`"sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",` +
-		`"revision":42,"channel":"14/stable"}`
+	expected := `{"action":"install",` +
+		`"sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`
 	c.Check(string(body), tc.Equals, expected)
 }
 
-func clientIntPtr(value int) *int { return &value }
-
 func (cs *clientSuite) TestInstallCharmError(c *tc.C) {
 	cs.err = io.EOF
-	_, err := cs.cli.InstallCharm(client.InstallCharmOptions{Name: "postgresql-k8s"})
+	_, err := cs.cli.InstallCharm(client.InstallCharmOptions{SHA256: "bad"})
 	c.Check(err, tc.ErrorMatches, `cannot communicate with server: EOF`)
 	c.Check(cs.req.URL.String(), tc.Equals, "http://localhost/v1/charms")
 }
@@ -49,7 +43,7 @@ func (cs *clientSuite) TestInstallCharmRejectsInvalidAsyncResponse(c *tc.C) {
 		{`{"status-code":202,"type":"async"}`, `async response without change reference`},
 	} {
 		cs.rsp = test.response
-		_, err := cs.cli.InstallCharm(client.InstallCharmOptions{Name: "postgresql-k8s"})
+		_, err := cs.cli.InstallCharm(client.InstallCharmOptions{SHA256: "bad"})
 		c.Check(err, tc.ErrorMatches, test.err)
 	}
 }

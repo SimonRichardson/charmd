@@ -3,13 +3,11 @@ package charmapi
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/canonical/tc"
@@ -23,109 +21,91 @@ type clientSuite struct{}
 
 var _ = tc.InternalSuite(&clientSuite{})
 
-func (s *clientSuite) TestNew(c *tc.C) {
-	client, err := New(config.Endpoint{Type: BackendJuju, URL: "https://agent.example.test/charm"})
-	c.Assert(err, tc.IsNil)
-	juju, ok := client.(*jujuCharmClient)
-	c.Assert(ok, tc.Equals, true)
-	endpoint := juju.client.Endpoint()
-	c.Check(endpoint.String(), tc.Equals, "https://agent.example.test/charm")
-}
-
-func (s *clientSuite) TestNewUsesCharmhubForEmptyEndpoint(c *tc.C) {
-	client, err := New(config.Endpoint{})
-	c.Assert(err, tc.IsNil)
-	_, ok := client.(*charmhubClient)
-	c.Check(ok, tc.Equals, true)
-}
-
-func (s *clientSuite) TestNewRejectsInvalidEndpoint(c *tc.C) {
-	_, err := New(config.Endpoint{Type: BackendJuju, URL: "ftp://agent.example.test"})
-	c.Check(err, tc.NotNil)
-}
-
-func (s *clientSuite) TestNewRejectsUnknownBackend(c *tc.C) {
-	_, err := New(config.Endpoint{Type: "other"})
-	c.Check(err, tc.ErrorMatches, `unknown charm API type "other"`)
-}
-
-func (s *clientSuite) TestCharmhubRejectsResolvedChecksumDifferentFromRequest(c *tc.C) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		var payload struct {
-			Actions []struct {
-				InstanceKey string `json:"instance-key"`
-			} `json:"actions"`
-		}
-		c.Assert(json.NewDecoder(request.Body).Decode(&payload), tc.IsNil)
-		c.Assert(payload.Actions, tc.HasLen, 1)
-		response := `{"results":[{"instance-key":%q,"result":"download",` +
-			`"charm":{"download":{"url":"https://downloads.example.test/postgresql-k8s.charm",` +
-			`"hash-sha-256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}}}]}`
-		_, err := fmt.Fprintf(w, response, payload.Actions[0].InstanceKey)
-		c.Check(err, tc.IsNil)
-	}))
-	defer server.Close()
-
-	client, err := New(config.Endpoint{Type: BackendCharmhub, URL: server.URL})
-	c.Assert(err, tc.IsNil)
-	_, err = client.GetCharmDownloadInfo(c.Context(), DownloadRequest{
-		Name:   "postgresql-k8s",
-		SHA256: strings.Repeat("f", 64),
-	})
-	c.Check(err, tc.ErrorMatches, `Charmhub checksum .* does not match requested checksum .*`)
-}
-
-func (s *clientSuite) TestDownloadCharmChecksChecksumBeforeRename(c *tc.C) {
+func (s *clientSuite) TestAPIClientDiscoversAndDownloadsCharm(c *tc.C) {
 	archive := []byte("charm archive")
-	checksumBytes := sha256.Sum256(archive)
-	checksum := hex.EncodeToString(checksumBytes[:])
+	digest := sha256.Sum256(archive)
+	checksum := hex.EncodeToString(digest[:])
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		c.Check(request.Method, tc.Equals, http.MethodGet)
-		_, err := w.Write(archive)
-		c.Check(err, tc.IsNil)
+		switch request.URL.Path {
+		case "/v1/charms/" + checksum:
+			c.Check(request.Method, tc.Equals, http.MethodGet)
+			c.Check(request.Header.Get("Accept"), tc.Equals, "application/json")
+			w.Header().Set("Content-Type", "application/json")
+			_, err := fmt.Fprintf(
+				w,
+				`{"name":"postgresql-k8s","sha256":%q,"download-url":%q}`,
+				checksum, "http://"+request.Host+"/downloads/"+checksum,
+			)
+			c.Check(err, tc.IsNil)
+		case "/downloads/" + checksum:
+			_, err := w.Write(archive)
+			c.Check(err, tc.IsNil)
+		default:
+			http.NotFound(w, request)
+		}
 	}))
 	defer server.Close()
 
-	destination := filepath.Join(c.MkDir(), "postgresql-k8s.charm")
-	c.Assert(downloadCharm(c.Context(), server.Client(), server.URL, checksum, destination), tc.IsNil)
+	client, err := New(config.Endpoint{URL: server.URL})
+	c.Assert(err, tc.IsNil)
+	info, err := client.GetCharmDownloadInfo(c.Context(), checksum)
+	c.Assert(err, tc.IsNil)
+	destination := filepath.Join(c.MkDir(), "charm")
+	c.Assert(client.DownloadCharm(c.Context(), info, destination), tc.IsNil)
 	data, err := os.ReadFile(destination)
 	c.Assert(err, tc.IsNil)
 	c.Check(data, tc.DeepEquals, archive)
+}
 
-	err = downloadCharm(c.Context(), server.Client(), server.URL, strings.Repeat("0", 64), destination)
-	c.Check(err, tc.ErrorMatches, `downloaded charm checksum does not match .*`)
-	data, err = os.ReadFile(destination)
+func (s *clientSuite) TestAPIClientRejectsMismatchedChecksum(c *tc.C) {
+	checksum := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		response := `{"name":"postgresql-k8s","sha256":"bad",` +
+			`"download-url":"https://downloads.example.test/charm"}`
+		_, err := fmt.Fprint(w, response)
+		c.Check(err, tc.IsNil)
+	}))
+	defer server.Close()
+	client, err := New(config.Endpoint{URL: server.URL})
+	c.Assert(err, tc.IsNil)
+	_, err = client.GetCharmDownloadInfo(c.Context(), checksum)
+	c.Check(err, tc.ErrorMatches, `discovered checksum "bad" does not match requested checksum .*`)
+}
+
+func (s *clientSuite) TestFileClientReadsManifestAndMovesArchive(c *tc.C) {
+	directory := c.MkDir()
+	archive := []byte("charm archive")
+	digest := sha256.Sum256(archive)
+	checksum := hex.EncodeToString(digest[:])
+	c.Assert(os.WriteFile(filepath.Join(directory, checksum), archive, 0644), tc.IsNil)
+	manifest := "name: postgresql-k8s\nmetadata:\n  revision: 42\n"
+	c.Assert(os.WriteFile(filepath.Join(directory, checksum+".manifest"), []byte(manifest), 0644), tc.IsNil)
+
+	client, err := New(config.Endpoint{Path: directory})
+	c.Assert(err, tc.IsNil)
+	info, err := client.GetCharmDownloadInfo(c.Context(), checksum)
+	c.Assert(err, tc.IsNil)
+	c.Check(info.Name, tc.Equals, "postgresql-k8s")
+	c.Check(info.SHA256, tc.Equals, checksum)
+	c.Check(info.Metadata, tc.DeepEquals, map[string]any{"revision": 42})
+	destination := filepath.Join(c.MkDir(), "charm")
+	c.Assert(client.DownloadCharm(c.Context(), info, destination), tc.IsNil)
+	data, err := os.ReadFile(destination)
 	c.Assert(err, tc.IsNil)
 	c.Check(data, tc.DeepEquals, archive)
-}
-
-func (s *clientSuite) TestDownloadCharmRejectsInvalidInputsWithoutRequest(c *tc.C) {
-	requests := 0
-	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		requests++
-	}))
-	defer server.Close()
-	destination := filepath.Join(c.MkDir(), "postgresql-k8s.charm")
-	checksum := strings.Repeat("0", 64)
-
-	err := downloadCharm(c.Context(), server.Client(), "ftp://downloads.example.test/charm", checksum, destination)
-	c.Check(err, tc.ErrorMatches, `invalid charm download URL .*`)
-	err = downloadCharm(c.Context(), server.Client(), server.URL, "bad", destination)
-	c.Check(err, tc.ErrorMatches, `invalid SHA-256 checksum "bad"`)
-	c.Check(requests, tc.Equals, 0)
-	_, err = os.Stat(destination)
+	_, err = os.Stat(filepath.Join(directory, checksum))
 	c.Check(os.IsNotExist(err), tc.Equals, true)
 }
 
-func (s *clientSuite) TestDownloadCharmRejectsHTTPFailureWithoutCreatingFile(c *tc.C) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		http.Error(w, "unavailable", http.StatusServiceUnavailable)
-	}))
-	defer server.Close()
-	destination := filepath.Join(c.MkDir(), "postgresql-k8s.charm")
-
-	err := downloadCharm(c.Context(), server.Client(), server.URL, strings.Repeat("0", 64), destination)
-	c.Check(err, tc.ErrorMatches, `download charm: unexpected HTTP status 503 Service Unavailable`)
-	_, err = os.Stat(destination)
-	c.Check(os.IsNotExist(err), tc.Equals, true)
+func (s *clientSuite) TestFileClientRejectsMissingManifestWithoutMove(c *tc.C) {
+	directory := c.MkDir()
+	checksum := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	archivePath := filepath.Join(directory, checksum)
+	c.Assert(os.WriteFile(archivePath, []byte("charm archive"), 0644), tc.IsNil)
+	client, err := New(config.Endpoint{Path: directory})
+	c.Assert(err, tc.IsNil)
+	_, err = client.GetCharmDownloadInfo(c.Context(), checksum)
+	c.Check(err, tc.ErrorMatches, `read charm manifest: .*`)
+	_, err = os.Stat(archivePath)
+	c.Check(err, tc.IsNil)
 }

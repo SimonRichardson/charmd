@@ -25,8 +25,9 @@ func (s *CharmdSuite) TestInstall(c *tc.C) {
 		var body map[string]any
 		c.Assert(json.NewDecoder(request.Body).Decode(&body), tc.IsNil)
 		c.Check(body, tc.DeepEquals, map[string]any{
-			"action": "install", "name": "postgresql-k8s", "revision": float64(42),
-			"channel": "14/stable",
+			"action": "install",
+			"sha256": "0123456789abcdef0123456789abcdef" +
+				"0123456789abcdef0123456789abcdef",
 		})
 		w.Header().Set("Content-Type", "application/json")
 		_, err := fmt.Fprint(w, `{"status-code":202,"type":"async","change":"1"}`)
@@ -34,7 +35,7 @@ func (s *CharmdSuite) TestInstall(c *tc.C) {
 	})
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{
-		"install", "--revision", "42", "--channel", "14/stable", "postgresql-k8s",
+		"install", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 	})
 	c.Assert(err, tc.IsNil)
 	c.Check(rest, tc.HasLen, 0)
@@ -42,10 +43,10 @@ func (s *CharmdSuite) TestInstall(c *tc.C) {
 	c.Check(s.Stderr(), tc.Equals, "")
 }
 
-func (s *CharmdSuite) TestInstallRejectsMissingNameAndSHA256(c *tc.C) {
+func (s *CharmdSuite) TestInstallRejectsMissingOrInvalidChecksum(c *tc.C) {
 	for _, args := range [][]string{
 		{"install"},
-		{"install", "--sha256", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "postgresql-k8s"},
+		{"install", "bad"},
 	} {
 		_, err := cli.ParserForTest().ParseArgs(args)
 		c.Check(err, tc.NotNil, tc.Commentf("args %q", args))
@@ -53,7 +54,7 @@ func (s *CharmdSuite) TestInstallRejectsMissingNameAndSHA256(c *tc.C) {
 }
 
 func (s *CharmdSuite) TestInstallCreatesDaemonChange(c *tc.C) {
-	charmClient, err := charmapi.New(config.Endpoint{})
+	charmClient, err := charmapi.New(config.Endpoint{Path: c.MkDir()})
 	c.Assert(err, tc.IsNil)
 	statePath := filepath.Join(c.MkDir(), "state.json")
 	o, err := overlord.New(&overlord.Options{
@@ -69,7 +70,7 @@ func (s *CharmdSuite) TestInstallCreatesDaemonChange(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	var stdout, stderr bytes.Buffer
 	err = cli.RunWithClient(
-		[]string{"install", "--channel", "14/stable", "postgresql-k8s"},
+		[]string{"install", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"},
 		api, &stdout, &stderr,
 	)
 	c.Assert(err, tc.IsNil)

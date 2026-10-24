@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -21,11 +22,10 @@ type Services struct {
 	CharmAPI Endpoint `yaml:"charm-api"`
 }
 
-// Endpoint identifies a charm API backend and its optional HTTP endpoint.
+// Endpoint identifies an HTTP discovery service or local charm source directory.
 type Endpoint struct {
-	Type string `yaml:"type"`
 	URL  string `yaml:"url"`
-	Base string `yaml:"base"`
+	Path string `yaml:"path"`
 }
 
 // Load reads and validates configuration from path.
@@ -55,24 +55,16 @@ func Decode(r io.Reader) (*Config, error) {
 // Validate ensures configured endpoints are usable by charmd.
 func (c *Config) Validate() error {
 	endpoint := c.Services.CharmAPI
-	if endpoint.Type != "" && endpoint.Type != "charmhub" && endpoint.Type != "juju" {
-		return fmt.Errorf("services.charm-api.type: must be charmhub or juju")
+	if endpoint.URL == "" && endpoint.Path == "" {
+		return fmt.Errorf("services.charm-api: URL or path is required")
 	}
-	if endpoint.Type == "juju" && endpoint.URL == "" {
-		return fmt.Errorf("services.charm-api.url: is required for juju")
+	if endpoint.URL != "" && endpoint.Path != "" {
+		return fmt.Errorf("services.charm-api: URL and path are mutually exclusive")
 	}
-	if endpoint.Base != "" {
-		if endpoint.Type == "juju" {
-			return fmt.Errorf("services.charm-api.base: is only supported by charmhub")
+	if endpoint.Path != "" {
+		if !filepath.IsAbs(endpoint.Path) {
+			return fmt.Errorf("services.charm-api.path: must be absolute")
 		}
-		nameChannel, architecture, found := strings.Cut(endpoint.Base, "/")
-		name, channel, baseFound := strings.Cut(nameChannel, "@")
-		if !found || !baseFound || name == "" || channel == "" || architecture == "" ||
-			strings.Contains(channel, "@") || strings.Contains(architecture, "/") {
-			return fmt.Errorf("services.charm-api.base: must use NAME@CHANNEL/ARCHITECTURE")
-		}
-	}
-	if endpoint.URL == "" {
 		return nil
 	}
 	if err := ValidateEndpoint(endpoint); err != nil {

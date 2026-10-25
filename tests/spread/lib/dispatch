@@ -37,8 +37,8 @@ if (root / ("block-" + hook)).exists():
             raise TimeoutError("hook gate was not released")
         time.sleep(0.05)
 
-if hook == "install" and (root / "fail-install").exists():
-    raise RuntimeError("intentional install failure")
+if (root / ("fail-" + hook)).exists():
+    raise RuntimeError("intentional " + hook + " failure")
 
 assert subprocess.check_output(["is-leader"], text=True).strip() == leader
 assert subprocess.check_output(["config-get", "status"], text=True).strip() == status

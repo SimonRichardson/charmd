@@ -21,7 +21,7 @@ with Daemon() as daemon:
     gate.unlink()
     (daemon.root / "release").touch()
     daemon.settled(5)
-    expected = [("install", False, "world"), ("config-changed", False, "world"),
+    expected = [("install", False, "world"), ("config-changed", False, "world"), ("start", False, "world"),
                 ("config-changed", False, "first"), ("leader-elected", True, "first"),
                 ("config-changed", True, "second")]
     daemon.expect(expected)

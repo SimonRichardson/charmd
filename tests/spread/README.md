@@ -16,8 +16,8 @@ real filesystem charm, config, and leadership APIs. The charm invokes hookd's
 and standalone hook entry points are exercised. The scenarios check complete
 hook histories and terminal change statuses, including:
 
-- Install before config, with no start hook.
-- Install before leader-elected before initial config when already leader.
+- Install before config before start, with start occurring once per installation.
+- Install before leader-elected before initial config before start when already leader.
 - Leadership gain during a blocked hook, immutable leadership and config within
   that hook, election priority over queued config, loss, and reelection.
 - Semantic config deduplication, invalid updates, and watcher recovery.
@@ -26,6 +26,8 @@ hook histories and terminal change statuses, including:
 - Graceful cancellation checkpointing queued work for retry after restart.
 - Abrupt install/config interruption entering an error state and blocking later hooks.
 - Queued, executed, and committed checkpoints resuming at the appropriate phase.
+- Failed configuration preventing start, failed/interrupted start blocking later
+  configuration, cancellation recovery, and persistent startup across restarts.
 
 A shared nonblocking file lock detects overlapping hooks. Gate files let the
 leadership scenario queue work while a hook is demonstrably running. Polls have

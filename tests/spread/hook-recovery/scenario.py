@@ -39,6 +39,7 @@ with Daemon(leader=True) as daemon:
     assert records[:len(history)] == history
     assert sum(row[:2] == ["begin", "install"] for row in records) == 1, records
     assert sum(row[:2] == ["begin", "leader-elected"] for row in records) == 1, records
+    assert sum(row[:2] == ["begin", "start"] for row in records) == 1, records
 
     if step == "queued":
         assert len(records) >= len(history) + 4, records

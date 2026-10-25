@@ -32,7 +32,7 @@ func (*changesSuite) TestInstallElectionConfigOrder(c *tc.C) {
 	config := configHook(st, install)
 	st.Unlock()
 	settle(c, manager, runner)
-	c.Check(calls, tc.DeepEquals, []string{"install", "leader-elected", "config-changed"})
+	c.Check(calls, tc.DeepEquals, []string{"install", "leader-elected", "config-changed", "start"})
 	st.Lock()
 	c.Check(config.Status(), tc.Equals, state.DoneStatus)
 	c.Check(st.Changes(), tc.HasLen, 3)
@@ -41,7 +41,7 @@ func (*changesSuite) TestInstallElectionConfigOrder(c *tc.C) {
 		manager.changed("one")
 	}
 	settle(c, manager, runner)
-	c.Check(calls, tc.HasLen, 3)
+	c.Check(calls, tc.HasLen, 4)
 }
 
 // TestFailedElectionBlocksConfig verifies acceptance requires success and ordinary
@@ -68,7 +68,7 @@ func (*changesSuite) TestFailedElectionBlocksConfig(c *tc.C) {
 	client.set(false, nil)
 	manager.changed("one")
 	settle(c, manager, runner)
-	c.Check(calls, tc.DeepEquals, []string{"install", "leader-elected", "config-changed"})
+	c.Check(calls, tc.DeepEquals, []string{"install", "leader-elected", "config-changed", "start"})
 }
 
 // TestStaleElectionIsSkipped verifies a queued gain cannot execute after leadership loss.

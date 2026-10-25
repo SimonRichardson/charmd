@@ -146,7 +146,7 @@ fi
 	history, err := os.ReadFile(filepath.Join(dir, "history"))
 	c.Assert(err, tc.IsNil)
 
-	c.Check(string(history), tc.Equals, "install:false\nconfig-changed:false\nconfig-changed:false\nleader-elected:true\nconfig-changed:true\nconfig-changed:true\n")
+	c.Check(string(history), tc.Equals, "install:false\nconfig-changed:false\nconfig-changed:false\nleader-elected:true\nstart:true\nconfig-changed:true\nconfig-changed:true\n")
 	st.Lock()
 	for _, change := range st.Changes() {
 		c.Check(change.Status(), tc.Equals, state.DoneStatus)

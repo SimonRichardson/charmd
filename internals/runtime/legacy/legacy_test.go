@@ -166,7 +166,7 @@ func (*legacySuite) TestLifecycleHooks(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	runtime := &Runtime{Executable: exe}
-	for _, name := range []string{"install", "config-changed"} {
+	for _, name := range []string{"install", "config-changed", "leader-elected", "start"} {
 		for _, handler := range []string{"dispatch", "hooks/" + name} {
 			dir := charm(c, `
 [ "$JUJU_DISPATCH_PATH" = "hooks/$JUJU_HOOK_NAME" ]
@@ -181,12 +181,6 @@ printf '%s' "$JUJU_HOOK_NAME"
 		_, err := runtime.RunHook(context.Background(), charmRuntime.Hook{CharmDir: charm(c, "", ""), Name: name})
 		c.Check(err, tc.IsNil)
 	}
-}
-
-// TestStartIsUnsupported verifies start cannot execute before its lifecycle semantics are implemented.
-func (*legacySuite) TestStartIsUnsupported(c *tc.C) {
-	_, err := (&Runtime{}).RunHook(context.Background(), charmRuntime.Hook{Name: "start"})
-	c.Check(err, tc.ErrorMatches, `unsupported legacy hook "start"`)
 }
 
 // TestUnknownConfigCannotExecute verifies service options are checked before starting charm code.

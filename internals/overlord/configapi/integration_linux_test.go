@@ -40,7 +40,7 @@ func (*integrationSuite) TestFileToHook(c *tc.C) {
 	for name, body := range map[string]string{
 		"metadata.yaml": "name: file-config-charm\n",
 		"config.yaml":   "options:\n  greeting:\n    default: default\n",
-		"dispatch":      "#!/bin/sh\nset -eu\n[ \"$JUJU_HOOK_NAME\" = config-changed ]\nconfig-get greeting > observed\n",
+		"dispatch":      "#!/bin/sh\nset -eu\n[ \"$JUJU_HOOK_NAME\" != start ] || exit 0\n[ \"$JUJU_HOOK_NAME\" = config-changed ]\nconfig-get greeting > observed\n",
 	} {
 		c.Assert(os.WriteFile(filepath.Join(dir, name), []byte(body), 0755), tc.IsNil)
 	}

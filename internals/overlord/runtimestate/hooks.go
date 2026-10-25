@@ -159,6 +159,9 @@ func (m *Manager) commitHook(task *state.Task, progress hookState) error {
 	}
 	m.state.Lock()
 	defer m.state.Unlock()
+	if err := m.commitLifecycle(task, progress.Invocation.Name); err != nil {
+		return err
+	}
 	task.Set("charm-install-path", progress.Invocation.Dir)
 	task.Set("hook-config", progress.Invocation.Config)
 	task.Set("hook-result", progress.Result)

@@ -23,8 +23,12 @@ with Daemon() as daemon:
     actual = daemon.history()
     assert actual[1:3] == [["begin", "install", "false", "world"],
                            ["end", "install", "false", "world"]], actual
-    configs = actual[3:]
-    assert len(configs) >= 2 and len(configs) % 2 == 0, actual
+    assert actual[3:7] == [[phase, hook, "false", "world"]
+                           for hook in ("config-changed", "start")
+                           for phase in ("begin", "end")], actual
+
+    configs = actual[7:]
+    assert len(configs) % 2 == 0, actual
 
     for begin, end in zip(configs[::2], configs[1::2]):
         assert begin == ["begin", "config-changed", "false", "world"], actual

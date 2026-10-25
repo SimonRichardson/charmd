@@ -45,31 +45,36 @@ func (*changesSuite) TestEveryNotificationCreatesChange(c *tc.C) {
 		manager.changed(checksum)
 		settle(c, manager, runner)
 	}
-	c.Assert(hooks, tc.HasLen, 2)
+	c.Assert(hooks, tc.HasLen, 3)
 
 	c.Check(hooks[0].Name, tc.Equals, "config-changed")
 	c.Check(hooks[0].CharmDir, tc.Equals, "/charm")
 	c.Check(hooks[0].Config, tc.DeepEquals, map[string]any{"greeting": "first"})
+	c.Check(hooks[1].Name, tc.Equals, "start")
 	c.Check(hooks[1].Config, tc.DeepEquals, hooks[0].Config)
+	c.Check(hooks[2].Name, tc.Equals, "config-changed")
+	c.Check(hooks[2].Config, tc.DeepEquals, hooks[0].Config)
 	st.Lock()
 	c.Check(install.Change().Tasks(), tc.HasLen, 2)
 	c.Check(st.Changes(), tc.HasLen, 3)
+	var taskCount int
 	for _, change := range st.Changes() {
 		if change == install.Change() {
 			continue
 		}
 		c.Check(change.Kind(), tc.Equals, "change-config")
-		c.Check(change.Tasks(), tc.HasLen, 2)
+		taskCount += len(change.Tasks())
 		c.Check(change.Err(), tc.IsNil)
 	}
+	c.Check(taskCount, tc.Equals, 5)
 	st.Unlock()
 	client.set(map[string]any{"greeting": "updated"})
 	manager.changed(checksum)
 	settle(c, manager, runner)
-	c.Assert(hooks, tc.HasLen, 3)
+	c.Assert(hooks, tc.HasLen, 4)
 
 	c.Check(hooks[0].Config["greeting"], tc.Equals, "first")
-	c.Check(hooks[2].Config["greeting"], tc.Equals, "updated")
+	c.Check(hooks[3].Config["greeting"], tc.Equals, "updated")
 }
 
 // TestIncompleteInstallNeverRunsConfig verifies notifications survive pending or
@@ -138,7 +143,7 @@ func (*changesSuite) TestFetchFailureDoesNotRunHook(c *tc.C) {
 	client.mu.Unlock()
 	manager.changed(checksum)
 	settle(c, manager, runner)
-	c.Check(calls, tc.Equals, 1)
+	c.Check(calls, tc.Equals, 2)
 }
 
 // TestNotificationBurstPreservesEveryChange verifies active work does not cause
@@ -163,7 +168,7 @@ func (*changesSuite) TestNotificationBurstPreservesEveryChange(c *tc.C) {
 		manager.changed(checksum)
 	}
 	settle(c, manager, runner)
-	c.Check(calls, tc.Equals, 3)
+	c.Check(calls, tc.Equals, 4)
 	c.Check(client.gets, tc.Equals, 3)
 	st.Lock()
 	defer st.Unlock()
@@ -188,6 +193,7 @@ func (*changesSuite) TestRealHookReadsServiceConfig(c *tc.C) {
 		"config.yaml":   "options:\n  greeting:\n    default: default-value\n  untouched:\n    default: kept\n  unset:\n    type: string\n",
 		"dispatch": `#!/bin/sh
 set -eu
+[ "$JUJU_HOOK_NAME" != start ] || exit 0
 [ "$JUJU_HOOK_NAME" = config-changed ]
 [ "$JUJU_DISPATCH_PATH" = hooks/config-changed ]
 [ "$JUJU_CHARM_DIR" = "$PWD" ]
@@ -254,7 +260,7 @@ func (*changesSuite) TestPendingEventsSurviveRestart(c *tc.C) {
 	installed(restored, checksum, "/charm")
 	restored.Unlock()
 	settle(c, restoredManager, restoredRunner)
-	c.Check(calls, tc.Equals, 1)
+	c.Check(calls, tc.Equals, 2)
 	settle(c, restoredManager, restoredRunner)
-	c.Check(calls, tc.Equals, 1)
+	c.Check(calls, tc.Equals, 2)
 }

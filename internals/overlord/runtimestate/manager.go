@@ -54,6 +54,16 @@ func HookTask(st *state.State, previous *state.Task, name string) *state.Task {
 	task := st.NewTask(RunHookTask, fmt.Sprintf("Run charm %s hook", name))
 	task.Set("hook-name", name)
 	task.Set("hook-state", hookState{Step: hookQueued})
+	// Retain installation identity through config fetches and subsequent hooks.
+	var installID string
+	if name == "install" {
+		installID = task.ID()
+	} else if previous.Get("hook-install-task", &installID) != nil {
+		previous.Get("install-task", &installID)
+	}
+	if installID != "" {
+		task.Set("hook-install-task", installID)
+	}
 	var checksum string
 	if previous.Get("charm-sha256", &checksum) == nil {
 		task.Set("charm-sha256", checksum)

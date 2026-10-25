@@ -1,0 +1,4 @@
+summary: Start follows successful initial config and persists across failures and restart
+variants: [success, config-failure, start-failure, canceled, interrupted, executed]
+execute: |
+  python3 scenario.py "$SPREAD_VARIANT"

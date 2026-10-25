@@ -1,4 +1,4 @@
-summary: Install precedes config with dispatch and standalone legacy hooks
+summary: Install precedes config and start with dispatch and standalone legacy hooks
 variants: [dispatch, hooks]
 execute: |
   python3 scenario.py "$SPREAD_VARIANT"

@@ -5,7 +5,7 @@ from harness import Daemon
 with Daemon() as daemon:
     daemon.install()
     daemon.settled(2)
-    expected = [("install", False, "world"), ("config-changed", False, "world")]
+    expected = [("install", False, "world"), ("config-changed", False, "world"), ("start", False, "world")]
     daemon.write("charm-config.yaml", f"# same value, different YAML\ncharms: {{'{daemon.checksum}': {{status: world}}}}\n")
     # A bounded quiet window detects unexpected changes as well as hook execution.
     deadline = time.monotonic() + 3

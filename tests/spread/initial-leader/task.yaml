@@ -1,3 +1,3 @@
-summary: Existing leadership is accepted after install and before initial config
+summary: Existing leadership is accepted after install and before config and start
 execute: |
   python3 scenario.py

@@ -71,7 +71,7 @@ func (*hooksSuite) TestChangeDuringHookPreservesSnapshotAndPriority(c *tc.C) {
 	close(release)
 	runner.Wait()
 	settle(c, manager, runner)
-	c.Check(calls, tc.DeepEquals, []string{"install", "config-changed", "leader-elected", "config-changed"})
+	c.Check(calls, tc.DeepEquals, []string{"install", "config-changed", "leader-elected", "start", "config-changed"})
 }
 
 // TestGetFailurePreventsCharmExecution verifies unknown leadership cannot silently
@@ -123,8 +123,8 @@ func (*hooksSuite) TestLossAndRegainRequireNewElection(c *tc.C) {
 	configHook(st, install)
 	st.Unlock()
 	settle(c, manager, runner)
-	c.Check(calls, tc.DeepEquals, []string{"install", "leader-elected", "config-changed", "config-changed", "leader-elected", "config-changed"})
-	c.Check(leaders, tc.DeepEquals, []bool{true, true, true, false, true, true})
+	c.Check(calls, tc.DeepEquals, []string{"install", "leader-elected", "config-changed", "start", "config-changed", "leader-elected", "config-changed"})
+	c.Check(leaders, tc.DeepEquals, []bool{true, true, true, true, false, true, true})
 }
 
 // TestLossDuringElectionCannotAcknowledgeRegain verifies completion of an older
@@ -245,7 +245,7 @@ func (*hooksSuite) TestPreflightGainDoesNotWaitForDeferredConfig(c *tc.C) {
 
 	runner.Wait()
 	settle(c, manager, runner)
-	c.Check(calls, tc.DeepEquals, []string{"install", "leader-elected", "config-changed"})
+	c.Check(calls, tc.DeepEquals, []string{"install", "leader-elected", "config-changed", "start"})
 
 	st.Lock()
 	defer st.Unlock()

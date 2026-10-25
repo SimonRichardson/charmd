@@ -31,6 +31,9 @@ func (m *Manager) blocked(task *state.Task, running []*state.Task) bool {
 	if HookExecuted(task) {
 		return false
 	}
+	if m.startPending(task) {
+		return true
+	}
 	var checksum string
 	if task.Get("charm-sha256", &checksum) != nil || checksum == "" {
 		return false

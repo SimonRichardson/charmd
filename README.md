@@ -80,6 +80,38 @@ credentials; callers without authenticated credentials are denied notice access.
 Interrupted handlers may run again after a restart; handlers must therefore be
 idempotent or reconcile external side effects.
 
+## Testing a local charm in LXC
+
+Run the script with a container name and a local charm archive:
+
+```bash
+./scripts/test-lxc.sh my-container ./my-charm.charm
+```
+
+If the container does not exist, the script creates it from `ubuntu:22.04`.
+Existing stopped containers are started; running containers are reused.
+Existing containers must contain Bash and coreutils. The container is deleted
+on exit, including after failures and when an existing container was reused.
+Pass `--keep` to preserve the container and its runtime files for inspection:
+
+```bash
+./scripts/test-lxc.sh --keep my-container ./my-charm.charm
+```
+
+The script builds a static Linux binary for the container's architecture
+(amd64 or arm64), copies it and the charm archive into a fresh
+`/var/tmp/charmd-test.*` directory, and sets `CHARMD` to that directory for
+both the daemon and CLI commands. It configures the local file backend with
+a SHA-addressed archive and manifest, then runs `charmd install <sha256>`
+and waits for the change to complete. No charm service is needed.
+
+The script exits unsuccessfully if startup or installation fails or times
+out. Set `TIMEOUT=300` to increase the default 120-second timeout. It prints
+changes and tasks and stops the daemon on exit. With `--keep`, the runtime
+directory, installed charm, state, and `daemon.log` remain available. The host
+requires Go (the version specified by `go.mod`), `lxc`, and `sha256sum`, with
+permission to execute commands and push files into the container.
+
 ## License
 
 Charmd contains modified source code from Canonical Pebble and is licensed

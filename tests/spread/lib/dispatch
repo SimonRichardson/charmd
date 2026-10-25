@@ -1,0 +1,47 @@
+#!/usr/bin/python3
+"""Exercise real hookd tools and record immutable snapshots under a global lock."""
+import fcntl
+import json
+import os
+from pathlib import Path
+import subprocess
+import time
+
+root = Path(os.environ["CHARMD_TEST_ROOT"])
+hook = os.environ["JUJU_HOOK_NAME"]
+assert os.environ["JUJU_DISPATCH_PATH"] == "hooks/" + hook
+assert os.environ["JUJU_CHARM_DIR"] == os.environ["CHARM_DIR"] == os.getcwd()
+assert os.environ["JUJU_UNIT_NAME"] == "spread-test/0"
+assert os.environ["JUJU_CONTEXT_ID"]
+
+lock = (root / "hook.lock").open("w")
+try:
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except BlockingIOError:
+    (root / "overlap").touch()
+    raise
+
+# Read through hookd on both sides of a gate to detect changing hook contexts.
+leader = subprocess.check_output(["is-leader"], text=True).strip()
+status = subprocess.check_output(["config-get", "status"], text=True).strip()
+with (root / "history").open("a") as stream:
+    stream.write(json.dumps(["begin", hook, leader, status]) + "\n")
+
+if (root / ("block-" + hook)).exists():
+    (root / "waiting").touch()
+    deadline = time.monotonic() + 60
+    while not (root / "release").exists():
+        if time.monotonic() >= deadline:
+            raise TimeoutError("hook gate was not released")
+        time.sleep(0.05)
+
+if hook == "install" and (root / "fail-install").exists():
+    raise RuntimeError("intentional install failure")
+
+assert subprocess.check_output(["is-leader"], text=True).strip() == leader
+assert subprocess.check_output(["config-get", "status"], text=True).strip() == status
+
+subprocess.run(["juju-log", hook + ":" + leader], check=True)
+subprocess.run(["status-set", "active", hook], check=True)
+with (root / "history").open("a") as stream:
+    stream.write(json.dumps(["end", hook, leader, status]) + "\n")

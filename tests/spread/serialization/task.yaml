@@ -1,0 +1,3 @@
+summary: Hooks from different charm installations never overlap
+execute: |
+  python3 scenario.py

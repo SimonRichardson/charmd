@@ -1,0 +1,44 @@
+project: charmd
+path: /root/charmd
+
+environment:
+  HOST_PATH: '$(HOST:echo "$PATH")'
+
+backends:
+  lxd:
+    systems: [ubuntu-24.04]
+
+exclude:
+  - .git
+  - .aws
+  - .codex
+  - .agents
+  - '*.charm'
+
+# Build once on the host; the guests need no Go toolchain or network downloads.
+repack: |
+  export PATH="$HOST_PATH"
+  staging=$(mktemp -d)
+  trap 'rm -rf "$staging"' EXIT
+  tar -x -C "$staging" <&3
+  mkdir -p "$staging/tests/spread/bin"
+  CGO_ENABLED=0 GOOS=linux go build -o "$staging/tests/spread/bin/charmd" ./cmd/charmd
+  # Normalize corporate host UIDs, which may exceed an unprivileged LXD idmap.
+  tar --owner=0 --group=0 -c -C "$staging" . >&4
+
+prepare: |
+  command -v python3
+
+suites:
+  tests/spread/:
+    summary: Real daemon and legacy charm lifecycle scenarios
+    kill-timeout: 3m
+    environment:
+      PYTHONPATH: $SPREAD_PATH/tests/spread/lib
+      CHARMD_BINARY: $SPREAD_PATH/tests/spread/bin/charmd
+    debug-each: |
+      cat /var/tmp/charmd-spread/daemon.log || true
+      cat /var/tmp/charmd-spread/history || true
+    restore-each: |
+      # The harness stops its daemon even on failure. Remove only its scratch data.
+      rm -rf /var/tmp/charmd-spread

@@ -32,3 +32,7 @@ go.work.sum
 # .vscode/
 state.json
 example/charms/*
+
+# Spread server reuse metadata and generated Python bytecode.
+.spread-reuse.*
+__pycache__/

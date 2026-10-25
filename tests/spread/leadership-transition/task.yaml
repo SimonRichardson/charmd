@@ -1,0 +1,3 @@
+summary: Leadership changes preserve active hook snapshots and serialize queued work
+execute: |
+  python3 scenario.py

@@ -1,0 +1,3 @@
+summary: Equivalent and invalid local config writes do not execute hooks
+execute: |
+  python3 scenario.py

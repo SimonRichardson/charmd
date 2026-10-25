@@ -1,0 +1,3 @@
+summary: Graceful hook cancellation is checkpointed as queued and retried on restart
+execute: |
+  python3 scenario.py

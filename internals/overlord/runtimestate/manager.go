@@ -16,6 +16,7 @@ import (
 // ErrSkipHook indicates an obsolete lifecycle event that should complete without charm execution.
 var ErrSkipHook = errors.New("hook no longer required")
 
+// RunHookTask identifies lifecycle hook work on the shared runner.
 const RunHookTask = "run-hook"
 
 // Manager owns hook execution on the shared task runner.
@@ -32,20 +33,11 @@ func NewManager(st *state.State, runner *state.TaskRunner, runtime charmRuntime.
 		panic("state, task runner and runtime are required")
 	}
 	m := &Manager{state: st, runtime: runtime}
+	m.recoverLegacyTasks()
 	runner.AddHandler(RunHookTask, m.runHook, nil)
 	// The initial runtime models one local unit per charm installation. Serialize
 	// hooks to avoid concurrent mutations of the same charm's working directory.
-	runner.AddBlocked(func(task *state.Task, running []*state.Task) bool {
-		if task.Kind() != RunHookTask {
-			return false
-		}
-		for _, other := range running {
-			if other.Kind() == RunHookTask {
-				return true
-			}
-		}
-		return false
-	})
+	runner.AddBlocked(m.blocked)
 	return m
 }
 
@@ -61,6 +53,7 @@ func InstallTask(st *state.State, install *state.Task) *state.Task {
 func HookTask(st *state.State, previous *state.Task, name string) *state.Task {
 	task := st.NewTask(RunHookTask, fmt.Sprintf("Run charm %s hook", name))
 	task.Set("hook-name", name)
+	task.Set("hook-state", hookState{Step: hookQueued})
 	var checksum string
 	if previous.Get("charm-sha256", &checksum) == nil {
 		task.Set("charm-sha256", checksum)
@@ -69,59 +62,24 @@ func HookTask(st *state.State, previous *state.Task, name string) *state.Task {
 	return task
 }
 
-// runHook reads the completed installation, executes its hook, and persists the result without holding state during execution.
+// runHook resumes the durable operation phase before considering charm execution.
 func (m *Manager) runHook(task *state.Task, tomb *tomb.Tomb) error {
 	m.state.Lock()
-	dependencies := task.WaitTasks()
-	var dir, name string
-	var config map[string]any
-	var err error
-	if len(dependencies) != 1 {
-		err = fmt.Errorf("hook task requires one predecessor task")
-	} else {
-		err = dependencies[0].Get("charm-install-path", &dir)
-		if err == nil && dependencies[0].Has("hook-config") {
-			err = dependencies[0].Get("hook-config", &config)
-		}
-	}
-	if err == nil {
-		err = task.Get("hook-name", &name)
-	}
+	progress, err := readHookState(task)
 	m.state.Unlock()
-
 	if err != nil {
 		return err
 	}
-	if dir == "" {
-		return fmt.Errorf("hook task has no charm installation path")
+	switch progress.Step {
+	case hookPending:
+		return fmt.Errorf("%s hook execution was interrupted; retry or resolution is required", progress.Invocation.Name)
+	case hookDone, hookCommitted:
+		return m.commitHook(task, progress)
+	case hookQueued:
+		return m.executeHook(task, tomb)
+	default:
+		return fmt.Errorf("unknown hook execution step %q", progress.Step)
 	}
-	var leader bool
-	if m.Leadership != nil {
-		leader, err = m.Leadership(tomb.Context(context.Background()), task)
-		if err != nil && !errors.Is(err, ErrSkipHook) {
-			return err
-		}
-	}
-	// Hooks and tool requests may perform I/O for an arbitrary duration.
-	// Keep the shared state unlocked until there is a result to commit.
-	output := taskOutput{state: m.state, task: task}
-	var result charmRuntime.Result
-	if !errors.Is(err, ErrSkipHook) {
-		result, err = m.runtime.RunHook(tomb.Context(context.Background()), charmRuntime.Hook{
-			CharmDir: dir, Name: name, Config: config, Leader: leader, Stdout: output, Stderr: output,
-		})
-	} else {
-		err = nil
-	}
-	m.state.Lock()
-	task.Set("hook-result", result)
-	// Forward the installation path along the lifecycle dependency chain.
-	if err == nil {
-		task.Set("charm-install-path", dir)
-		task.Set("hook-config", config)
-	}
-	m.state.Unlock()
-	return err
 }
 
 type taskOutput struct {

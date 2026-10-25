@@ -1,0 +1,4 @@
+summary: Abruptly interrupted hooks are not replayed and block subsequent work
+variants: [install, config]
+execute: |
+  python3 scenario.py "$SPREAD_VARIANT"

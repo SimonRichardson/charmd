@@ -1,0 +1,4 @@
+summary: Queued checkpoints execute while successful checkpoints only commit
+variants: [queued, done, committed]
+execute: |
+  python3 scenario.py "$SPREAD_VARIANT"

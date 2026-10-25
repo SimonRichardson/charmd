@@ -4,6 +4,7 @@ import http.client
 import json
 import os
 from pathlib import Path
+import signal
 import socket
 import subprocess
 import time
@@ -58,7 +59,12 @@ class Daemon:
 
     def __enter__(self):
         """Start the daemon and wait for API readiness rather than sleeping blindly."""
-        self.log = (self.root / "daemon.log").open("w")
+        self.start()
+        return self
+
+    def start(self):
+        """Start or restart against the same durable state and charm directory."""
+        self.log = (self.root / "daemon.log").open("a")
         self.process = subprocess.Popen([self.binary], env={**os.environ,
             "CHARMD": str(self.root), "CHARMD_TEST_ROOT": str(self.root)},
             stdout=self.log, stderr=subprocess.STDOUT)
@@ -67,10 +73,13 @@ class Daemon:
         except BaseException:
             self.__exit__(None, None, None)
             raise
-        return self
 
     def __exit__(self, *unused):
         """Stop and reap the daemon on success, assertion failure, or timeout."""
+        self.stop()
+
+    def stop(self):
+        """Gracefully cancel active work and finish checkpointing before returning."""
         if self.process is not None:
             self.process.terminate()
             try:
@@ -80,6 +89,28 @@ class Daemon:
                 self.process.wait()
         if self.log is not None:
             self.log.close()
+            self.log = None
+        self.process = None
+
+    def crash(self):
+        """Simulate process-tree loss without allowing shutdown to rewrite Pending."""
+        self.process.kill()
+        self.process.wait()
+        # Hooks have their own process group. Kill that group too, simulating a
+        # machine/service crash and preventing fixture children outliving the task.
+        pid_file = self.root / "hook.pid"
+        if pid_file.exists():
+            try:
+                os.killpg(int(pid_file.read_text()), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        self.log.close()
+        self.log = None
+        self.process = None
+
+    def checkpoint(self):
+        """Read an atomic daemon checkpoint for assertions or stopped-state fixtures."""
+        return json.loads((self.root / "state.json").read_text())
 
     def changes(self):
         """Fetch structured changes without parsing human-readable CLI tables."""

@@ -29,7 +29,8 @@ func TestMain(m *testing.M) {
 // TestDownloadedCharmRunsInstall verifies installation runs only install, including cached reinstallation.
 func (s *managerSuite) TestDownloadedCharmRunsInstall(c *tc.C) { s.testDownloadedCharm(c, false) }
 
-// TestDownloadedCharmHookFails verifies that hook failure reaches the install change.
+// TestDownloadedCharmHookFails verifies failure reaches the install change and
+// another install request cannot bypass the unresolved hook error.
 func (s *managerSuite) TestDownloadedCharmHookFails(c *tc.C) { s.testDownloadedCharm(c, true) }
 
 // testDownloadedCharm runs an archived charm through the real task and hook-tool pipeline.
@@ -77,6 +78,13 @@ func (*managerSuite) testDownloadedCharm(c *tc.C, fail bool) {
 		st.Lock()
 		tasks := change.Tasks()
 		status := tasks[2].Status()
+		if fail && attempt == 1 {
+			hasResult := tasks[2].Has("hook-result")
+			st.Unlock()
+			c.Check(status, tc.Equals, state.DoStatus)
+			c.Check(hasResult, tc.Equals, false)
+			continue
+		}
 		var result charmRuntime.Result
 		err = tasks[2].Get("hook-result", &result)
 		changeErr := change.Err()

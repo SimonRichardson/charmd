@@ -30,7 +30,7 @@ func (m *Manager) completed(task *state.Task, _, status state.Status) {
 // blocked prioritizes outstanding leadership work, while never blocking installation.
 // Failed election changes deliberately block ordinary hooks until resolved.
 func (m *Manager) blocked(task *state.Task, _ []*state.Task) bool {
-	if task.Kind() != runtimestate.RunHookTask {
+	if task.Kind() != runtimestate.RunHookTask || runtimestate.HookExecuted(task) {
 		return false
 	}
 	var name, checksum string
@@ -111,7 +111,7 @@ func (m *Manager) predecessor(checksum string, install *state.Task) *state.Task 
 		if task.Kind() != runtimestate.RunHookTask || task.Get("charm-sha256", &sha) != nil || sha != checksum || task.Get("hook-name", &name) != nil || name != "config-changed" {
 			continue
 		}
-		if task.Status() == state.DoingStatus {
+		if task.Status() == state.DoingStatus && runtimestate.HookStarted(task) {
 			return task
 		}
 		if task.Status() == state.DoneStatus && task.ReadyTime().After(previous.ReadyTime()) {

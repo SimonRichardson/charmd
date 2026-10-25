@@ -21,6 +21,8 @@ except BlockingIOError:
     (root / "overlap").touch()
     raise
 
+(root / "hook.pid").write_text(str(os.getpid()))
+
 # Read through hookd on both sides of a gate to detect changing hook contexts.
 leader = subprocess.check_output(["is-leader"], text=True).strip()
 status = subprocess.check_output(["config-get", "status"], text=True).strip()

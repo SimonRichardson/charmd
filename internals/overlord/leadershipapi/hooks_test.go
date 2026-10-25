@@ -223,3 +223,31 @@ func (*hooksSuite) TestElectionInheritsActiveConfig(c *tc.C) {
 	settle(c, manager, runner)
 	c.Check(electedConfig, tc.DeepEquals, map[string]any{"status": "world"})
 }
+
+// TestPreflightGainDoesNotWaitForDeferredConfig prevents a dependency cycle when
+// GET observes leadership before the watch notification arrives.
+func (*hooksSuite) TestPreflightGainDoesNotWaitForDeferredConfig(c *tc.C) {
+	client := &fakeClient{}
+	var calls []string
+	st, runner, manager := fixture(c, client, func(_ context.Context, hook charmRuntime.Hook) (charmRuntime.Result, error) {
+		calls = append(calls, hook.Name)
+		return charmRuntime.Result{}, nil
+	})
+	st.Lock()
+	install := installation(st, "one")
+	st.Unlock()
+	settle(c, manager, runner)
+	st.Lock()
+	config := configHook(st, install)
+	st.Unlock()
+	client.set(true, nil)
+	c.Assert(runner.Ensure(), tc.IsNil)
+
+	runner.Wait()
+	settle(c, manager, runner)
+	c.Check(calls, tc.DeepEquals, []string{"install", "leader-elected", "config-changed"})
+
+	st.Lock()
+	defer st.Unlock()
+	c.Check(config.Status(), tc.Equals, state.DoneStatus)
+}

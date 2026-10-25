@@ -14,6 +14,7 @@ import (
 	"github.com/SimonRichardson/charmd/internals/charmapi"
 	"github.com/SimonRichardson/charmd/internals/cli"
 	"github.com/SimonRichardson/charmd/internals/config"
+	"github.com/SimonRichardson/charmd/internals/configapi"
 	"github.com/SimonRichardson/charmd/internals/daemon"
 	"github.com/SimonRichardson/charmd/internals/overlord"
 )
@@ -60,9 +61,13 @@ func (s *CharmdSuite) TestInstallCreatesDaemonChange(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	statePath := filepath.Join(c.MkDir(), "state.json")
+	configAPI, err := configapi.New(config.Endpoint{URL: "https://config.example.test"})
+	c.Assert(err, tc.IsNil)
+
 	o, err := overlord.New(&overlord.Options{
 		StatePath: statePath,
 		CharmAPI:  charmClient,
+		ConfigAPI: configAPI,
 	})
 	c.Assert(err, tc.IsNil)
 

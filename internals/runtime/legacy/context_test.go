@@ -116,3 +116,38 @@ func (*contextSuite) TestLog(c *tc.C) {
 	c.Check(ctx.Log("failed"), tc.ErrorIs, failure)
 	c.Check(ctx.Result().Status, tc.IsNil)
 }
+
+// TestConfigOverridesAreIsolated verifies nested service values are copied and defaults survive.
+func (*contextSuite) TestConfigOverridesAreIsolated(c *tc.C) {
+	dir := charm(c, "", "")
+	c.Assert(os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("options:\n  greeting:\n    default: default\n  untouched:\n    default: kept\n"), 0644), tc.IsNil)
+
+	ctx, err := NewHookContext(dir, nil)
+	c.Assert(err, tc.IsNil)
+
+	nested := map[string]any{"value": "snapshot"}
+	values := map[string]any{"greeting": nested}
+	c.Assert(ctx.applyConfig(values), tc.IsNil)
+
+	nested["value"] = "changed"
+	values["greeting"] = "replacement"
+	c.Check(ctx.Config(), tc.DeepEquals, map[string]any{"greeting": map[string]any{"value": "snapshot"}, "untouched": "kept"})
+	other, err := NewHookContext(dir, nil)
+	c.Assert(err, tc.IsNil)
+
+	c.Check(other.Config()["greeting"], tc.Equals, "default")
+}
+
+// TestInvalidConfigLeavesDefaultsUnchanged verifies validation is atomic and rejects unsupported values.
+func (*contextSuite) TestInvalidConfigLeavesDefaultsUnchanged(c *tc.C) {
+	dir := charm(c, "", "")
+	c.Assert(os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("options:\n  greeting:\n    default: default\n"), 0644), tc.IsNil)
+
+	ctx, err := NewHookContext(dir, nil)
+	c.Assert(err, tc.IsNil)
+
+	for _, values := range []map[string]any{{"greeting": "changed", "unknown": "bad"}, {"greeting": make(chan int)}} {
+		c.Check(ctx.applyConfig(values), tc.NotNil)
+		c.Check(ctx.Config()["greeting"], tc.Equals, "default")
+	}
+}

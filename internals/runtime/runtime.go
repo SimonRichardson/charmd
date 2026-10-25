@@ -11,8 +11,10 @@ import (
 type Hook struct {
 	CharmDir string
 	Name     string
-	Stdout   io.Writer
-	Stderr   io.Writer
+	// Config contains the service-provided overrides for this invocation.
+	Config map[string]any
+	Stdout io.Writer
+	Stderr io.Writer
 }
 
 // Status is the workload status last set by a hook.

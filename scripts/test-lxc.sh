@@ -5,7 +5,7 @@ set -euo pipefail
 usage() {
     echo "Usage: $0 [--keep] <container> <charm-archive>" >&2
     echo "Missing containers are created from ubuntu:22.04; stopped containers are started." >&2
-    echo "TIMEOUT sets the readiness/install timeout in seconds (default: 120)." >&2
+    echo "TIMEOUT sets the readiness/install/config timeout in seconds (default: 120)." >&2
     echo "The container is deleted on exit (even if reused); --keep preserves it." >&2
 }
 
@@ -110,7 +110,8 @@ timeout=$2
 keep=$3
 cd "$CHARMD"
 chmod +x ./charmd
-printf 'services:\n  charm-api:\n    path: %s/source\n' "$CHARMD" > config.yaml
+printf 'services:\n  charm-api:\n    path: %s/source\n  config-api:\n    path: %s/charm-config.yaml\n' "$CHARMD" "$CHARMD" > config.yaml
+printf 'charms:\n  "%s":\n    status: "world"\n' "$checksum" > charm-config.yaml
 printf 'name: local-test\n' > "source/$checksum.manifest"
 ./charmd > daemon.log 2>&1 &
 daemon_pid=$!
@@ -166,8 +167,36 @@ while true; do
     fi
     sleep 1
 done
+# Config notifications are handled in a separate change after install succeeds.
+# Wait for that change explicitly before cleanup stops the daemon.
+deadline=$((SECONDS + timeout))
+config_change=
+while true; do
+    changes=$(./charmd changes)
+    config_change=$(awk -v checksum="$checksum" '$1 ~ /^[0-9]+$/ && index($0, "Apply config for charm") && index($0, checksum) {print $1; exit}' <<< "$changes")
+    status=not-created
+    if [[ -n $config_change ]]; then
+        status=$(awk -v id="$config_change" '$1 == id {print $2}' <<< "$changes")
+        case $status in
+            Done) break ;;
+            Error|Hold|Undone|Abort)
+                ./charmd tasks "$config_change"
+                echo "Config change $config_change finished with status $status." >&2
+                exit 1
+                ;;
+        esac
+    fi
+    if ! kill -0 "$daemon_pid" 2>/dev/null || (( SECONDS >= deadline )); then
+        ./charmd changes
+        if [[ -n $config_change ]]; then ./charmd tasks "$config_change"; fi
+        echo "Timed out waiting for config change (id: ${config_change:-not-created}, status: ${status:-unknown})." >&2
+        exit 1
+    fi
+    sleep 1
+done
 ./charmd changes
 ./charmd tasks "$change"
+./charmd tasks "$config_change"
 test -d "$CHARMD/charms/$checksum"
-echo "Charm installed at $CHARMD/charms/$checksum"
+echo "Charm installed and configured at $CHARMD/charms/$checksum"
 CONTAINER

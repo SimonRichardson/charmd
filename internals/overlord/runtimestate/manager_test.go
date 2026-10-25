@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/canonical/tc"
 
@@ -84,4 +85,63 @@ func (*managerSuite) testInstallTask(c *tc.C, fail bool) {
 
 	c.Check(result.Status.Message, tc.Equals, "installing")
 	c.Check(len(task.Log()) > 0, tc.Equals, true)
+}
+
+// TestHooksNeverOverlap verifies independent changes cannot execute hooks together, even after failure.
+func (*managerSuite) TestHooksNeverOverlap(c *tc.C) {
+	st := state.New(nil)
+	runner := state.NewTaskRunner(st)
+	entered := make(chan string, 2)
+	release := make(chan struct{})
+	defer runner.Stop()
+	defer close(release)
+	NewManager(st, runner, runtimeFunc(func(ctx context.Context, hook charmRuntime.Hook) (charmRuntime.Result, error) {
+		entered <- hook.CharmDir
+		select {
+		case <-release:
+			return charmRuntime.Result{}, errors.New("hook failed")
+		case <-ctx.Done():
+			return charmRuntime.Result{}, ctx.Err()
+		}
+	}))
+	st.Lock()
+	for _, dir := range []string{"/first", "/second"} {
+		install := st.NewTask("install-charm", "Unpack charm")
+		install.Set("charm-install-path", dir)
+		install.SetStatus(state.DoneStatus)
+		change := st.NewChange("install", "Install charm")
+		change.AddTask(install)
+		task := InstallTask(st, install)
+		if dir == "/second" {
+			task.Set("hook-name", "config-changed")
+		}
+		change.AddTask(task)
+	}
+	st.Unlock()
+	c.Assert(runner.Ensure(), tc.IsNil)
+
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		c.Fatal("no hook started")
+	}
+	// Repeated scheduling must respect the running hook across separate changes.
+	c.Assert(runner.Ensure(), tc.IsNil)
+
+	select {
+	case <-entered:
+		c.Fatal("hooks overlapped")
+	case <-time.After(100 * time.Millisecond):
+	}
+	release <- struct{}{}
+	runner.Wait()
+	c.Assert(runner.Ensure(), tc.IsNil)
+
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		c.Fatal("failed hook did not release the execution slot")
+	}
+	release <- struct{}{}
+	runner.Wait()
 }

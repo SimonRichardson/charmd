@@ -19,10 +19,11 @@ type Config struct {
 
 // Services names the APIs charmd calls.
 type Services struct {
-	CharmAPI Endpoint `yaml:"charm-api"`
+	CharmAPI  Endpoint `yaml:"charm-api"`
+	ConfigAPI Endpoint `yaml:"config-api"`
 }
 
-// Endpoint identifies an HTTP discovery service or local charm source directory.
+// Endpoint identifies an HTTP service or a local source path.
 type Endpoint struct {
 	URL  string `yaml:"url"`
 	Path string `yaml:"path"`
@@ -54,21 +55,27 @@ func Decode(r io.Reader) (*Config, error) {
 
 // Validate ensures configured endpoints are usable by charmd.
 func (c *Config) Validate() error {
-	endpoint := c.Services.CharmAPI
-	if endpoint.URL == "" && endpoint.Path == "" {
-		return fmt.Errorf("services.charm-api: URL or path is required")
-	}
-	if endpoint.URL != "" && endpoint.Path != "" {
-		return fmt.Errorf("services.charm-api: URL and path are mutually exclusive")
-	}
-	if endpoint.Path != "" {
-		if !filepath.IsAbs(endpoint.Path) {
-			return fmt.Errorf("services.charm-api.path: must be absolute")
+	for _, service := range []struct {
+		name     string
+		endpoint Endpoint
+	}{
+		{"charm-api", c.Services.CharmAPI},
+		{"config-api", c.Services.ConfigAPI},
+	} {
+		endpoint := service.endpoint
+		if endpoint.URL == "" && endpoint.Path == "" {
+			return fmt.Errorf("services.%s: URL or path is required", service.name)
 		}
-		return nil
-	}
-	if err := ValidateEndpoint(endpoint); err != nil {
-		return fmt.Errorf("services.charm-api.url: %w", err)
+		if endpoint.URL != "" && endpoint.Path != "" {
+			return fmt.Errorf("services.%s: URL and path are mutually exclusive", service.name)
+		}
+		if endpoint.Path != "" {
+			if !filepath.IsAbs(endpoint.Path) {
+				return fmt.Errorf("services.%s.path: must be absolute", service.name)
+			}
+		} else if err := ValidateEndpoint(endpoint); err != nil {
+			return fmt.Errorf("services.%s.url: %w", service.name, err)
+		}
 	}
 	return nil
 }

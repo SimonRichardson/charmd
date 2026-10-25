@@ -3,6 +3,7 @@ package legacy
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -126,4 +127,28 @@ func configDefaults(dir string) (map[string]any, error) {
 		values[key] = option.Default
 	}
 	return values, nil
+}
+
+// applyConfig overlays an invocation snapshot without modifying the caller's map or charm defaults.
+// Unknown options fail before any charm code executes.
+func (c *HookContext) applyConfig(values map[string]any) error {
+	for name := range values {
+		if _, ok := c.config[name]; !ok {
+			return fmt.Errorf("unknown charm config option %q", name)
+		}
+	}
+	// Copy nested JSON values as well as the outer map so later invocations
+	// cannot mutate the snapshot visible to this hook.
+	data, err := json.Marshal(values)
+	if err != nil {
+		return fmt.Errorf("copy charm config: %w", err)
+	}
+	var snapshot map[string]any
+	if err := json.Unmarshal(data, &snapshot); err != nil {
+		return err
+	}
+	for name, value := range snapshot {
+		c.config[name] = value
+	}
+	return nil
 }

@@ -135,7 +135,27 @@ func runTasks(args []string, api *client.Client, out io.Writer) error {
 	if err := w.Flush(); err != nil {
 		return err
 	}
-	_, err = fmt.Fprintln(out)
+	if _, err := fmt.Fprintln(out); err != nil {
+		return err
+	}
+	// Hook tracebacks are stored in task logs, so surface them alongside failed
+	// tasks rather than requiring direct access to the daemon's state file.
+	for _, task := range change.Tasks {
+		if task.Status != "Error" || len(task.Log) == 0 {
+			continue
+		}
+		if _, err := fmt.Fprintf(out, "%s:\n", task.Summary); err != nil {
+			return err
+		}
+		for _, line := range task.Log {
+			if _, err := fmt.Fprintln(out, line); err != nil {
+				return err
+			}
+		}
+	}
+	if change.Err != "" {
+		_, err = fmt.Fprintf(out, "Error: %s\n", change.Err)
+	}
 	return err
 }
 

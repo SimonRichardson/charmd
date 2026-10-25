@@ -88,7 +88,9 @@ func (m *Manager) Install(checksum string) (*state.Change, error) {
 
 	change.AddTask(fetch)
 	change.AddTask(install)
-	change.AddTask(runtimestate.InstallTask(m.state, install))
+	hook := runtimestate.InstallTask(m.state, install)
+	hook.Set(charmSHA256Key, checksum)
+	change.AddTask(hook)
 
 	m.state.EnsureBefore(0)
 

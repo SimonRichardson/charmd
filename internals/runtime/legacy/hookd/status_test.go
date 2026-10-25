@@ -41,3 +41,27 @@ func (*statusSuite) TestStatusCommands(c *tc.C) {
 		c.Check(err, tc.NotNil, tc.Commentf("args: %q", args))
 	}
 }
+
+// TestOpsUnitStatusFlags verifies Ops' explicit application=False invocation and
+// ensures unsupported or malformed application requests cannot mutate unit status.
+func (*statusSuite) TestOpsUnitStatusFlags(c *tc.C) {
+	ctx := &testContext{}
+	command, err := NewCommand(ctx, "status-set")
+	c.Assert(err, tc.IsNil)
+
+	for _, flag := range []string{"--application=False", "--application=false", "--application=0"} {
+		_, err := command.Run([]string{flag, "active", "world"})
+		c.Assert(err, tc.IsNil)
+
+		c.Check(ctx.Status(), tc.Equals, charmRuntime.Status{Status: "active", Message: "world"})
+	}
+	for _, args := range [][]string{{"--application", "blocked"}, {"--application=True", "blocked"}, {"--application=invalid", "blocked"}, {"--application=False"}} {
+		_, err := command.Run(args)
+		c.Check(err, tc.NotNil)
+		c.Check(ctx.Status(), tc.Equals, charmRuntime.Status{Status: "active", Message: "world"})
+	}
+	_, err = command.Run([]string{"--", "active", "--application=False"})
+	c.Assert(err, tc.IsNil)
+
+	c.Check(ctx.Status().Message, tc.Equals, "--application=False")
+}

@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// TestDownloadedCharmRunsInstall exercises fetch, extraction, hook execution, and cached reinstallation.
+// TestDownloadedCharmRunsInstall verifies installation runs only install, including cached reinstallation.
 func (s *managerSuite) TestDownloadedCharmRunsInstall(c *tc.C) { s.testDownloadedCharm(c, false) }
 
 // TestDownloadedCharmHookFails verifies that hook failure reaches the install change.
@@ -36,11 +36,11 @@ func (s *managerSuite) TestDownloadedCharmHookFails(c *tc.C) { s.testDownloadedC
 func (*managerSuite) testDownloadedCharm(c *tc.C, fail bool) {
 	var buffer bytes.Buffer
 	archive := zip.NewWriter(&buffer)
-	script := "#!/bin/sh\nset -eu\nstatus-set maintenance installing\njuju-log installing\nprintf installed > installed\n"
+	script := "#!/bin/sh\nset -eu\n[ \"$JUJU_HOOK_NAME\" = install ]\nstatus-set maintenance installing\njuju-log installing\nprintf installed > installed\nprintf '%s\\n' \"$JUJU_HOOK_NAME\" > order\n"
 	if fail {
 		script += "exit 23\n"
 	}
-	for path, body := range map[string]string{"metadata.yaml": "name: downloaded\n", "hooks/install": script} {
+	for path, body := range map[string]string{"metadata.yaml": "name: downloaded\n", "dispatch": script} {
 		header := &zip.FileHeader{Name: path, Method: zip.Deflate}
 		header.SetMode(0755)
 		writer, err := archive.CreateHeader(header)
@@ -97,5 +97,9 @@ func (*managerSuite) testDownloadedCharm(c *tc.C, fail bool) {
 		c.Assert(err, tc.IsNil)
 
 		c.Check(string(data), tc.Equals, "installed")
+		order, err := os.ReadFile(filepath.Join(dir, api.info.SHA256, "order"))
+		c.Assert(err, tc.IsNil)
+
+		c.Check(string(order), tc.Equals, "install\n")
 	}
 }

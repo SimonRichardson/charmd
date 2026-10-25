@@ -12,6 +12,7 @@ import (
 
 	"github.com/SimonRichardson/charmd/internals/charmapi"
 	"github.com/SimonRichardson/charmd/internals/config"
+	"github.com/SimonRichardson/charmd/internals/configapi"
 	"github.com/SimonRichardson/charmd/internals/overlord"
 	"github.com/SimonRichardson/charmd/internals/overlord/charmstate"
 	"github.com/SimonRichardson/charmd/internals/overlord/state"
@@ -119,9 +120,13 @@ func newOverlord(c *tc.C) *overlord.Overlord {
 	charmAPI, err := charmapi.New(config.Endpoint{URL: "https://agent.example.test"})
 	c.Assert(err, tc.IsNil)
 
+	configAPI, err := configapi.New(config.Endpoint{URL: "https://config.example.test"})
+	c.Assert(err, tc.IsNil)
+
 	o, err := overlord.New(&overlord.Options{
 		StatePath: filepath.Join(c.MkDir(), "state.json"),
 		CharmAPI:  charmAPI,
+		ConfigAPI: configAPI,
 	})
 	c.Assert(err, tc.IsNil)
 

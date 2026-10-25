@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/SimonRichardson/charmd/internals/charmapi"
+	configservice "github.com/SimonRichardson/charmd/internals/configapi"
 	"github.com/SimonRichardson/charmd/internals/overlord/charmstate"
+	configstate "github.com/SimonRichardson/charmd/internals/overlord/configapi"
 	"github.com/SimonRichardson/charmd/internals/overlord/runtimestate"
 	"github.com/SimonRichardson/charmd/internals/overlord/state"
 	"github.com/SimonRichardson/charmd/internals/runtime/legacy"
@@ -23,6 +25,8 @@ type Options struct {
 	StatePath string
 	// CharmAPI accesses the configured charm API.
 	CharmAPI charmapi.CharmClient
+	// ConfigAPI watches and fetches charm configuration.
+	ConfigAPI configservice.Client
 }
 
 // Overlord owns the sole State and coordinates managers and the shared task runner.
@@ -32,6 +36,7 @@ type Overlord struct {
 	engine      *StateEngine
 	charmMgr    *charmstate.Manager
 	runtimeMgr  *runtimestate.Manager
+	configMgr   *configstate.Manager
 	wake        chan struct{}
 	stop        chan struct{}
 	done        chan struct{}
@@ -54,6 +59,9 @@ func New(opts *Options) (*Overlord, error) {
 	}
 	if opts.CharmAPI == nil {
 		return nil, fmt.Errorf("charm API client is required")
+	}
+	if opts.ConfigAPI == nil {
+		return nil, fmt.Errorf("config API client is required")
 	}
 	o := &Overlord{
 		wake: make(chan struct{}, 1),
@@ -84,6 +92,8 @@ func New(opts *Options) (*Overlord, error) {
 	}
 	o.runtimeMgr = runtimestate.NewManager(o.state, o.runner, &legacy.Runtime{Executable: executable})
 	o.engine.AddManager(o.runtimeMgr)
+	o.configMgr = configstate.NewManager(o.state, o.runner, opts.ConfigAPI)
+	o.engine.AddManager(o.configMgr)
 	return o, nil
 }
 
@@ -98,6 +108,9 @@ func (o *Overlord) CharmManager() *charmstate.Manager { return o.charmMgr }
 
 // RuntimeManager returns the manager responsible for charm hook execution.
 func (o *Overlord) RuntimeManager() *runtimestate.Manager { return o.runtimeMgr }
+
+// ConfigManager returns the configuration-service manager.
+func (o *Overlord) ConfigManager() *configstate.Manager { return o.configMgr }
 
 // AddManager registers a manager before StartUp. It panics after startup begins.
 func (o *Overlord) AddManager(m StateManager) {

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type legacySuite struct{}
@@ -90,5 +91,109 @@ func (*legacySuite) TestInvalidCharmCannotExecute(c *tc.C) {
 	result, err := runtime.RunHook(context.Background(), charmRuntime.Hook{CharmDir: c.MkDir(), Name: "install"})
 	c.Check(err, tc.NotNil)
 	c.Check(result.Status, tc.IsNil)
+	c.Check(calls, tc.Equals, 0)
+}
+
+// TestHooksAreSerialized verifies different charms share one execution slot and completion releases it.
+func (*legacySuite) TestHooksAreSerialized(c *tc.C) {
+	exe, err := os.Executable()
+	c.Assert(err, tc.IsNil)
+
+	entered := make(chan string, 2)
+	release := make(chan struct{})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	runtime := &Runtime{Executable: exe, Executor: executorFunc(func(ctx context.Context, command Command) error {
+		entered <- command.Dir
+		select {
+		case <-release:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	})}
+	first := charm(c, "exit 0", "hooks/install")
+	second := charm(c, "exit 0", "dispatch")
+	done := make(chan error, 2)
+	go func() {
+		_, err := runtime.RunHook(ctx, charmRuntime.Hook{CharmDir: first, Name: "install"})
+		done <- err
+	}()
+	select {
+	case dir := <-entered:
+		c.Assert(dir, tc.Equals, first)
+
+	case <-ctx.Done():
+		c.Fatal("first hook did not start")
+	}
+	go func() {
+		_, err := runtime.RunHook(ctx, charmRuntime.Hook{CharmDir: second, Name: "install"})
+		done <- err
+	}()
+	select {
+	case <-entered:
+		c.Fatal("second hook started while the first was running")
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(release)
+	for range 2 {
+		select {
+		case err := <-done:
+			c.Assert(err, tc.IsNil)
+
+		case <-ctx.Done():
+			c.Fatal("hooks did not complete")
+		}
+	}
+	c.Check(<-entered, tc.Equals, second)
+}
+
+// TestCanceledHookCannotExecute verifies cancellation prevents preparation and execution.
+func (*legacySuite) TestCanceledHookCannotExecute(c *tc.C) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	runtime := &Runtime{Executor: executorFunc(func(context.Context, Command) error {
+		c.Error("canceled hook executed")
+		return nil
+	})}
+	_, err := runtime.RunHook(ctx, charmRuntime.Hook{CharmDir: "/missing", Name: "install"})
+	c.Check(err, tc.Equals, context.Canceled)
+}
+
+// TestLifecycleHooks verifies discovery and environment for each supported lifecycle event.
+func (*legacySuite) TestLifecycleHooks(c *tc.C) {
+	exe, err := os.Executable()
+	c.Assert(err, tc.IsNil)
+
+	runtime := &Runtime{Executable: exe}
+	for _, name := range []string{"install", "config-changed"} {
+		for _, handler := range []string{"dispatch", "hooks/" + name} {
+			dir := charm(c, `
+[ "$JUJU_DISPATCH_PATH" = "hooks/$JUJU_HOOK_NAME" ]
+printf '%s' "$JUJU_HOOK_NAME"
+`, handler)
+			var output bytes.Buffer
+			_, err := runtime.RunHook(context.Background(), charmRuntime.Hook{CharmDir: dir, Name: name, Stdout: &output})
+			c.Assert(err, tc.IsNil)
+
+			c.Check(output.String(), tc.Equals, name)
+		}
+		_, err := runtime.RunHook(context.Background(), charmRuntime.Hook{CharmDir: charm(c, "", ""), Name: name})
+		c.Check(err, tc.IsNil)
+	}
+}
+
+// TestStartIsUnsupported verifies start cannot execute before its lifecycle semantics are implemented.
+func (*legacySuite) TestStartIsUnsupported(c *tc.C) {
+	_, err := (&Runtime{}).RunHook(context.Background(), charmRuntime.Hook{Name: "start"})
+	c.Check(err, tc.ErrorMatches, `unsupported legacy hook "start"`)
+}
+
+// TestUnknownConfigCannotExecute verifies service options are checked before starting charm code.
+func (*legacySuite) TestUnknownConfigCannotExecute(c *tc.C) {
+	calls := 0
+	runtime := &Runtime{Executor: executorFunc(func(context.Context, Command) error { calls++; return nil })}
+	_, err := runtime.RunHook(context.Background(), charmRuntime.Hook{CharmDir: charm(c, "exit 0", "dispatch"), Name: "config-changed", Config: map[string]any{"unknown": "value"}})
+	c.Check(err, tc.ErrorMatches, `unknown charm config option "unknown"`)
 	c.Check(calls, tc.Equals, 0)
 }

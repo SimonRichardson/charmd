@@ -7,6 +7,7 @@ import (
 
 	"github.com/SimonRichardson/charmd/internals/charmapi"
 	"github.com/SimonRichardson/charmd/internals/config"
+	"github.com/SimonRichardson/charmd/internals/configapi"
 	"github.com/SimonRichardson/charmd/internals/overlord"
 	"github.com/SimonRichardson/charmd/internals/overlord/state"
 )
@@ -22,6 +23,7 @@ func (s *overlordSuite) TestNewConstructsCharmManager(c *tc.C) {
 	o, err := overlord.New(&overlord.Options{
 		StatePath: filepath.Join(c.MkDir(), "state.json"),
 		CharmAPI:  charmAPI,
+		ConfigAPI: newConfigClient(c),
 	})
 	c.Assert(err, tc.IsNil)
 
@@ -40,7 +42,7 @@ func (s *overlordSuite) TestCharmInstallChangeSurvivesRestart(c *tc.C) {
 	charmAPI, err := charmapi.New(config.Endpoint{URL: "https://agent.example.test"})
 	c.Assert(err, tc.IsNil)
 
-	opts := &overlord.Options{StatePath: statePath, CharmAPI: charmAPI}
+	opts := &overlord.Options{StatePath: statePath, CharmAPI: charmAPI, ConfigAPI: newConfigClient(c)}
 	o, err := overlord.New(opts)
 	c.Assert(err, tc.IsNil)
 
@@ -73,4 +75,36 @@ func (s *overlordSuite) TestCharmInstallChangeSurvivesRestart(c *tc.C) {
 
 		c.Check(checksum, tc.Equals, "0123456789abcdef0123456789abcdef"+"0123456789abcdef0123456789abcdef")
 	}
+}
+
+// TestConfigManagerWiring verifies the configured service participates in overlord lifecycle management.
+func (*overlordSuite) TestConfigManagerWiring(c *tc.C) {
+	charmAPI, err := charmapi.New(config.Endpoint{URL: "https://agent.example.test"})
+	c.Assert(err, tc.IsNil)
+
+	configAPI, err := configapi.New(config.Endpoint{URL: "https://config.example.test"})
+	c.Assert(err, tc.IsNil)
+
+	o, err := overlord.New(&overlord.Options{StatePath: filepath.Join(c.MkDir(), "state.json"), CharmAPI: charmAPI, ConfigAPI: configAPI})
+	c.Assert(err, tc.IsNil)
+
+	defer o.Stop()
+	c.Check(o.ConfigManager(), tc.NotNil)
+}
+
+// newConfigClient provides the required service dependency without starting network activity.
+func newConfigClient(c *tc.C) configapi.Client {
+	client, err := configapi.New(config.Endpoint{URL: "https://config.example.test"})
+	c.Assert(err, tc.IsNil)
+
+	return client
+}
+
+// TestNewRequiresConfigAPI verifies incomplete service wiring fails before state is opened.
+func (*overlordSuite) TestNewRequiresConfigAPI(c *tc.C) {
+	charmAPI, err := charmapi.New(config.Endpoint{URL: "https://agent.example.test"})
+	c.Assert(err, tc.IsNil)
+
+	_, err = overlord.New(&overlord.Options{StatePath: filepath.Join(c.MkDir(), "state.json"), CharmAPI: charmAPI})
+	c.Check(err, tc.ErrorMatches, "config API client is required")
 }

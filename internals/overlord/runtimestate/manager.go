@@ -46,11 +46,16 @@ func NewManager(st *state.State, runner *state.TaskRunner, runtime charmRuntime.
 // Ensure leaves task scheduling to the shared task runner.
 func (m *Manager) Ensure() error { return nil }
 
-// InstallTask creates a hook task after unpacking. The caller holds the state lock.
+// InstallTask creates the install hook after unpacking. The caller holds the state lock.
 func InstallTask(st *state.State, install *state.Task) *state.Task {
-	task := st.NewTask(RunHookTask, "Run charm install hook")
-	task.Set("hook-name", "install")
-	task.WaitFor(install)
+	return HookTask(st, install, "install")
+}
+
+// HookTask creates a hook that waits for its predecessor to complete successfully.
+func HookTask(st *state.State, previous *state.Task, name string) *state.Task {
+	task := st.NewTask(RunHookTask, fmt.Sprintf("Run charm %s hook", name))
+	task.Set("hook-name", name)
+	task.WaitFor(previous)
 	return task
 }
 
@@ -59,11 +64,15 @@ func (m *Manager) runHook(task *state.Task, tomb *tomb.Tomb) error {
 	m.state.Lock()
 	dependencies := task.WaitTasks()
 	var dir, name string
+	var config map[string]any
 	var err error
 	if len(dependencies) != 1 {
-		err = fmt.Errorf("hook task requires one installation task")
+		err = fmt.Errorf("hook task requires one predecessor task")
 	} else {
 		err = dependencies[0].Get("charm-install-path", &dir)
+		if err == nil && dependencies[0].Has("hook-config") {
+			err = dependencies[0].Get("hook-config", &config)
+		}
 	}
 	if err == nil {
 		err = task.Get("hook-name", &name)
@@ -80,10 +89,15 @@ func (m *Manager) runHook(task *state.Task, tomb *tomb.Tomb) error {
 	// Keep the shared state unlocked until there is a result to commit.
 	output := taskOutput{state: m.state, task: task}
 	result, err := m.runtime.RunHook(tomb.Context(context.Background()), charmRuntime.Hook{
-		CharmDir: dir, Name: name, Stdout: output, Stderr: output,
+		CharmDir: dir, Name: name, Config: config, Stdout: output, Stderr: output,
 	})
 	m.state.Lock()
 	task.Set("hook-result", result)
+	// Forward the installation path along the lifecycle dependency chain.
+	if err == nil {
+		task.Set("charm-install-path", dir)
+		task.Set("hook-config", config)
+	}
 	m.state.Unlock()
 	return err
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/SimonRichardson/charmd/internals/charmapi"
 	"github.com/SimonRichardson/charmd/internals/config"
 	"github.com/SimonRichardson/charmd/internals/configapi"
+	"github.com/SimonRichardson/charmd/internals/leadershipapi"
 	"github.com/SimonRichardson/charmd/internals/overlord"
 	"github.com/SimonRichardson/charmd/internals/overlord/charmstate"
 	"github.com/SimonRichardson/charmd/internals/overlord/state"
@@ -124,9 +125,9 @@ func newOverlord(c *tc.C) *overlord.Overlord {
 	c.Assert(err, tc.IsNil)
 
 	o, err := overlord.New(&overlord.Options{
-		StatePath: filepath.Join(c.MkDir(), "state.json"),
-		CharmAPI:  charmAPI,
-		ConfigAPI: configAPI,
+		StatePath:     filepath.Join(c.MkDir(), "state.json"),
+		CharmAPI:      charmAPI,
+		LeadershipAPI: newLeadershipClient(c), ConfigAPI: configAPI,
 	})
 	c.Assert(err, tc.IsNil)
 
@@ -139,4 +140,12 @@ func assertReadinessStatus(c *tc.C, d *Daemon, want int) {
 
 	c.Check(recorder.Code, tc.Equals, want)
 	c.Check(recorder.Body.Len(), tc.Equals, 0)
+}
+
+// newLeadershipClient supplies a required service without starting network activity.
+func newLeadershipClient(c *tc.C) leadershipapi.Client {
+	client, err := leadershipapi.New(config.Endpoint{URL: "https://leadership.example.test"})
+	c.Assert(err, tc.IsNil)
+
+	return client
 }

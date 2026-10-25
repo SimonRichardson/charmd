@@ -15,7 +15,7 @@ var _ = tc.InternalSuite(&configSuite{})
 
 func (s *configSuite) TestDecode(c *tc.C) {
 	rawConfig := "services:\n  charm-api:\n" +
-		"    url: https://agent.example.test/charm\n  config-api:\n    path: /srv/config.yaml\n"
+		"    url: https://agent.example.test/charm\n  config-api:\n    path: /srv/config.yaml\n  leadership-api:\n    path: /srv/leadership.yaml\n"
 	config, err := Decode(strings.NewReader(rawConfig))
 	c.Assert(err, tc.IsNil)
 
@@ -23,7 +23,7 @@ func (s *configSuite) TestDecode(c *tc.C) {
 }
 
 func (s *configSuite) TestDecodeLocalCharmAPI(c *tc.C) {
-	config, err := Decode(strings.NewReader("services:\n  charm-api:\n    path: /srv/charms\n  config-api:\n    path: /srv/config.yaml\n"))
+	config, err := Decode(strings.NewReader("services:\n  charm-api:\n    path: /srv/charms\n  config-api:\n    path: /srv/config.yaml\n  leadership-api:\n    path: /srv/leadership.yaml\n"))
 	c.Assert(err, tc.IsNil)
 
 	c.Check(config.Services.CharmAPI.Path, tc.Equals, "/srv/charms")
@@ -62,7 +62,7 @@ func (s *configSuite) TestDecodeRejectsInvalidCharmAPI(c *tc.C) {
 
 // TestConfigAPIService verifies the required service is loaded independently of the charm source.
 func (*configSuite) TestConfigAPIService(c *tc.C) {
-	cfg, err := Decode(strings.NewReader("services:\n  charm-api:\n    path: /srv/charms\n  config-api:\n    url: https://config.example.test/base\n"))
+	cfg, err := Decode(strings.NewReader("services:\n  charm-api:\n    path: /srv/charms\n  config-api:\n    url: https://config.example.test/base\n  leadership-api:\n    path: /srv/leadership.yaml\n"))
 	c.Assert(err, tc.IsNil)
 
 	c.Check(cfg.Services.ConfigAPI.URL, tc.Equals, "https://config.example.test/base")
@@ -79,7 +79,7 @@ func (*configSuite) TestInvalidConfigAPIService(c *tc.C) {
 
 // TestLocalConfigAPIService verifies local and HTTP config sources are mutually exclusive.
 func (*configSuite) TestLocalConfigAPIService(c *tc.C) {
-	cfg, err := Decode(strings.NewReader("services:\n  charm-api:\n    path: /srv/charms\n  config-api:\n    path: /srv/config.yaml\n"))
+	cfg, err := Decode(strings.NewReader("services:\n  charm-api:\n    path: /srv/charms\n  config-api:\n    path: /srv/config.yaml\n  leadership-api:\n    path: /srv/leadership.yaml\n"))
 	c.Assert(err, tc.IsNil)
 
 	c.Check(cfg.Services.ConfigAPI.Path, tc.Equals, "/srv/config.yaml")
@@ -92,5 +92,19 @@ func (*configSuite) TestMissingConfigAPIService(c *tc.C) {
 	for _, section := range []string{"", "  config-api: {}\n", "  config-api:\n"} {
 		_, err := Decode(strings.NewReader("services:\n  charm-api:\n    path: /srv/charms\n" + section))
 		c.Check(err, tc.ErrorMatches, "services.config-api: URL or path is required")
+	}
+}
+
+// TestLeadershipAPIRequired verifies every daemon has an explicit leadership
+// source and accepts either an absolute local file or an HTTP endpoint.
+func (*configSuite) TestLeadershipAPIRequired(c *tc.C) {
+	base := "services:\n  charm-api:\n    path: /charms\n  config-api:\n    path: /config.yaml\n"
+	for _, source := range []string{"", "  leadership-api: {}\n", "  leadership-api:\n    path: relative\n", "  leadership-api:\n    url: ftp://host\n", "  leadership-api:\n    path: /file\n    url: http://host\n"} {
+		_, err := Decode(strings.NewReader(base + source))
+		c.Check(err, tc.ErrorMatches, ".*services.leadership-api.*")
+	}
+	for _, source := range []string{"path: /leadership.yaml", "url: https://leadership.example.test"} {
+		_, err := Decode(strings.NewReader(base + "  leadership-api:\n    " + source + "\n"))
+		c.Check(err, tc.IsNil)
 	}
 }

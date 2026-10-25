@@ -5,3 +5,5 @@ services:
     path: /var/lib/charmd/default/charm-config.yaml
     # Use an HTTP URL instead of path for a remote service.
     # url: http://127.0.0.1:8081
+  leadership-api:
+    path: /var/lib/charmd/default/charm-leadership.yaml

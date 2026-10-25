@@ -8,6 +8,7 @@ import (
 	"github.com/SimonRichardson/charmd/internals/charmapi"
 	"github.com/SimonRichardson/charmd/internals/config"
 	"github.com/SimonRichardson/charmd/internals/configapi"
+	"github.com/SimonRichardson/charmd/internals/leadershipapi"
 	"github.com/SimonRichardson/charmd/internals/overlord"
 	"github.com/SimonRichardson/charmd/internals/overlord/state"
 )
@@ -21,9 +22,9 @@ func (s *overlordSuite) TestNewConstructsCharmManager(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	o, err := overlord.New(&overlord.Options{
-		StatePath: filepath.Join(c.MkDir(), "state.json"),
-		CharmAPI:  charmAPI,
-		ConfigAPI: newConfigClient(c),
+		StatePath:     filepath.Join(c.MkDir(), "state.json"),
+		CharmAPI:      charmAPI,
+		LeadershipAPI: newLeadershipClient(c), ConfigAPI: newConfigClient(c),
 	})
 	c.Assert(err, tc.IsNil)
 
@@ -42,7 +43,7 @@ func (s *overlordSuite) TestCharmInstallChangeSurvivesRestart(c *tc.C) {
 	charmAPI, err := charmapi.New(config.Endpoint{URL: "https://agent.example.test"})
 	c.Assert(err, tc.IsNil)
 
-	opts := &overlord.Options{StatePath: statePath, CharmAPI: charmAPI, ConfigAPI: newConfigClient(c)}
+	opts := &overlord.Options{StatePath: statePath, CharmAPI: charmAPI, LeadershipAPI: newLeadershipClient(c), ConfigAPI: newConfigClient(c)}
 	o, err := overlord.New(opts)
 	c.Assert(err, tc.IsNil)
 
@@ -85,7 +86,7 @@ func (*overlordSuite) TestConfigManagerWiring(c *tc.C) {
 	configAPI, err := configapi.New(config.Endpoint{URL: "https://config.example.test"})
 	c.Assert(err, tc.IsNil)
 
-	o, err := overlord.New(&overlord.Options{StatePath: filepath.Join(c.MkDir(), "state.json"), CharmAPI: charmAPI, ConfigAPI: configAPI})
+	o, err := overlord.New(&overlord.Options{StatePath: filepath.Join(c.MkDir(), "state.json"), CharmAPI: charmAPI, LeadershipAPI: newLeadershipClient(c), ConfigAPI: configAPI})
 	c.Assert(err, tc.IsNil)
 
 	defer o.Stop()
@@ -107,4 +108,29 @@ func (*overlordSuite) TestNewRequiresConfigAPI(c *tc.C) {
 
 	_, err = overlord.New(&overlord.Options{StatePath: filepath.Join(c.MkDir(), "state.json"), CharmAPI: charmAPI})
 	c.Check(err, tc.ErrorMatches, "config API client is required")
+}
+
+// newLeadershipClient supplies a required service without starting network activity.
+func newLeadershipClient(c *tc.C) leadershipapi.Client {
+	client, err := leadershipapi.New(config.Endpoint{URL: "https://leadership.example.test"})
+	c.Assert(err, tc.IsNil)
+
+	return client
+}
+
+// TestLeadershipManagerWiring verifies required leadership service construction
+// and registration participate in the same daemon lifecycle as config changes.
+func (*overlordSuite) TestLeadershipManagerWiring(c *tc.C) {
+	charmAPI, err := charmapi.New(config.Endpoint{URL: "https://charm.example.test"})
+	c.Assert(err, tc.IsNil)
+
+	opts := &overlord.Options{StatePath: filepath.Join(c.MkDir(), "state.json"), CharmAPI: charmAPI, ConfigAPI: newConfigClient(c)}
+	_, err = overlord.New(opts)
+	c.Check(err, tc.ErrorMatches, "leadership API client is required")
+	opts.LeadershipAPI = newLeadershipClient(c)
+	o, err := overlord.New(opts)
+	c.Assert(err, tc.IsNil)
+
+	defer o.Stop()
+	c.Check(o.LeadershipManager(), tc.NotNil)
 }

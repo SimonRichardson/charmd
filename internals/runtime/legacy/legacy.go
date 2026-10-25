@@ -25,7 +25,7 @@ type Runtime struct {
 // RunHook prepares an invocation context and delegates hook execution to its runner.
 func (r *Runtime) RunHook(ctx context.Context, hook charmRuntime.Hook) (charmRuntime.Result, error) {
 	switch hook.Name {
-	case "install", "config-changed":
+	case "install", "config-changed", "leader-elected":
 	default:
 		return charmRuntime.Result{}, fmt.Errorf("unsupported legacy hook %q", hook.Name)
 	}
@@ -56,6 +56,7 @@ func (r *Runtime) RunHook(ctx context.Context, hook charmRuntime.Hook) (charmRun
 	if err := hookContext.applyConfig(hook.Config); err != nil {
 		return charmRuntime.Result{}, err
 	}
+	hookContext.leader = hook.Leader
 	runner := NewRunner(hookContext, dir, r.Executable, r.Executor)
 	return runner.RunHook(ctx, hook)
 }

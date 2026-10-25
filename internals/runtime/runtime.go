@@ -13,6 +13,8 @@ type Hook struct {
 	Name     string
 	// Config contains the service-provided overrides for this invocation.
 	Config map[string]any
+	// Leader is the immutable leadership snapshot for this invocation.
+	Leader bool
 	Stdout io.Writer
 	Stderr io.Writer
 }

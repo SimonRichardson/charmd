@@ -12,8 +12,10 @@ import (
 
 	"github.com/SimonRichardson/charmd/internals/charmapi"
 	configservice "github.com/SimonRichardson/charmd/internals/configapi"
+	leadservice "github.com/SimonRichardson/charmd/internals/leadershipapi"
 	"github.com/SimonRichardson/charmd/internals/overlord/charmstate"
 	configstate "github.com/SimonRichardson/charmd/internals/overlord/configapi"
+	leadstate "github.com/SimonRichardson/charmd/internals/overlord/leadershipapi"
 	"github.com/SimonRichardson/charmd/internals/overlord/runtimestate"
 	"github.com/SimonRichardson/charmd/internals/overlord/state"
 	"github.com/SimonRichardson/charmd/internals/runtime/legacy"
@@ -27,26 +29,29 @@ type Options struct {
 	CharmAPI charmapi.CharmClient
 	// ConfigAPI watches and fetches charm configuration.
 	ConfigAPI configservice.Client
+	// LeadershipAPI observes and reads the current unit leadership.
+	LeadershipAPI leadservice.Client
 }
 
 // Overlord owns the sole State and coordinates managers and the shared task runner.
 type Overlord struct {
-	state       *state.State
-	runner      *state.TaskRunner
-	engine      *StateEngine
-	charmMgr    *charmstate.Manager
-	runtimeMgr  *runtimestate.Manager
-	configMgr   *configstate.Manager
-	wake        chan struct{}
-	stop        chan struct{}
-	done        chan struct{}
-	once        sync.Once
-	lifecycleMu sync.Mutex
-	started     bool
-	stopped     bool
-	runnerAdded bool
-	scheduleMu  sync.Mutex
-	nextEnsure  time.Time
+	state         *state.State
+	runner        *state.TaskRunner
+	engine        *StateEngine
+	charmMgr      *charmstate.Manager
+	runtimeMgr    *runtimestate.Manager
+	configMgr     *configstate.Manager
+	leadershipMgr *leadstate.Manager
+	wake          chan struct{}
+	stop          chan struct{}
+	done          chan struct{}
+	once          sync.Once
+	lifecycleMu   sync.Mutex
+	started       bool
+	stopped       bool
+	runnerAdded   bool
+	scheduleMu    sync.Mutex
+	nextEnsure    time.Time
 }
 
 // New loads file-backed state and constructs its core managers without starting them.
@@ -62,6 +67,9 @@ func New(opts *Options) (*Overlord, error) {
 	}
 	if opts.ConfigAPI == nil {
 		return nil, fmt.Errorf("config API client is required")
+	}
+	if opts.LeadershipAPI == nil {
+		return nil, fmt.Errorf("leadership API client is required")
 	}
 	o := &Overlord{
 		wake: make(chan struct{}, 1),
@@ -94,6 +102,9 @@ func New(opts *Options) (*Overlord, error) {
 	o.engine.AddManager(o.runtimeMgr)
 	o.configMgr = configstate.NewManager(o.state, o.runner, opts.ConfigAPI)
 	o.engine.AddManager(o.configMgr)
+	o.leadershipMgr = leadstate.NewManager(o.state, o.runner, opts.LeadershipAPI)
+	o.runtimeMgr.Leadership = o.leadershipMgr.HookLeadership
+	o.engine.AddManager(o.leadershipMgr)
 	return o, nil
 }
 
@@ -213,3 +224,6 @@ func (o *Overlord) Stop() {
 		o.state.Unlock()
 	})
 }
+
+// LeadershipManager returns the leadership-service manager.
+func (o *Overlord) LeadershipManager() *leadstate.Manager { return o.leadershipMgr }

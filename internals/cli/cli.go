@@ -22,6 +22,7 @@ import (
 	"github.com/SimonRichardson/charmd/internals/config"
 	"github.com/SimonRichardson/charmd/internals/configapi"
 	"github.com/SimonRichardson/charmd/internals/daemon"
+	"github.com/SimonRichardson/charmd/internals/leadershipapi"
 	"github.com/SimonRichardson/charmd/internals/overlord"
 	"github.com/SimonRichardson/charmd/internals/timeutil"
 )
@@ -84,10 +85,15 @@ func runDaemon(paths runtimePathSet) error {
 	if err != nil {
 		return err
 	}
+	leadershipAPI, err := leadershipapi.New(runtimeConfig.Services.LeadershipAPI)
+	if err != nil {
+		return err
+	}
 	o, err := overlord.New(&overlord.Options{
-		StatePath: paths.state,
-		CharmAPI:  charmAPI,
-		ConfigAPI: configAPI,
+		StatePath:     paths.state,
+		CharmAPI:      charmAPI,
+		ConfigAPI:     configAPI,
+		LeadershipAPI: leadershipAPI,
 	})
 	if err != nil {
 		return err

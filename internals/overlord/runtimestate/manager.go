@@ -3,6 +3,7 @@ package runtimestate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -12,12 +13,17 @@ import (
 	charmRuntime "github.com/SimonRichardson/charmd/internals/runtime"
 )
 
+// ErrSkipHook indicates an obsolete lifecycle event that should complete without charm execution.
+var ErrSkipHook = errors.New("hook no longer required")
+
 const RunHookTask = "run-hook"
 
 // Manager owns hook execution on the shared task runner.
 type Manager struct {
 	state   *state.State
 	runtime charmRuntime.Runtime
+	// Leadership resolves and reconciles leadership immediately before hook execution.
+	Leadership func(context.Context, *state.Task) (bool, error)
 }
 
 // NewManager registers hook execution and serializes hooks through the shared task runner.
@@ -55,6 +61,10 @@ func InstallTask(st *state.State, install *state.Task) *state.Task {
 func HookTask(st *state.State, previous *state.Task, name string) *state.Task {
 	task := st.NewTask(RunHookTask, fmt.Sprintf("Run charm %s hook", name))
 	task.Set("hook-name", name)
+	var checksum string
+	if previous.Get("charm-sha256", &checksum) == nil {
+		task.Set("charm-sha256", checksum)
+	}
 	task.WaitFor(previous)
 	return task
 }
@@ -85,12 +95,24 @@ func (m *Manager) runHook(task *state.Task, tomb *tomb.Tomb) error {
 	if dir == "" {
 		return fmt.Errorf("hook task has no charm installation path")
 	}
+	var leader bool
+	if m.Leadership != nil {
+		leader, err = m.Leadership(tomb.Context(context.Background()), task)
+		if err != nil && !errors.Is(err, ErrSkipHook) {
+			return err
+		}
+	}
 	// Hooks and tool requests may perform I/O for an arbitrary duration.
 	// Keep the shared state unlocked until there is a result to commit.
 	output := taskOutput{state: m.state, task: task}
-	result, err := m.runtime.RunHook(tomb.Context(context.Background()), charmRuntime.Hook{
-		CharmDir: dir, Name: name, Config: config, Stdout: output, Stderr: output,
-	})
+	var result charmRuntime.Result
+	if !errors.Is(err, ErrSkipHook) {
+		result, err = m.runtime.RunHook(tomb.Context(context.Background()), charmRuntime.Hook{
+			CharmDir: dir, Name: name, Config: config, Leader: leader, Stdout: output, Stderr: output,
+		})
+	} else {
+		err = nil
+	}
 	m.state.Lock()
 	task.Set("hook-result", result)
 	// Forward the installation path along the lifecycle dependency chain.

@@ -18,7 +18,13 @@ type serverSuite struct{}
 
 var _ = tc.InternalSuite(&serverSuite{})
 
-type testContext struct{ status charmRuntime.Status }
+type testContext struct {
+	status charmRuntime.Status
+	leader bool
+}
+
+// IsLeader returns the fixture leadership snapshot.
+func (c *testContext) IsLeader() bool { return c.leader }
 
 // ID returns the fixture invocation identity.
 func (*testContext) ID() string { return "test-context" }

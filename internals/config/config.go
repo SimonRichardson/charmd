@@ -19,8 +19,9 @@ type Config struct {
 
 // Services names the APIs charmd calls.
 type Services struct {
-	CharmAPI  Endpoint `yaml:"charm-api"`
-	ConfigAPI Endpoint `yaml:"config-api"`
+	CharmAPI      Endpoint `yaml:"charm-api"`
+	ConfigAPI     Endpoint `yaml:"config-api"`
+	LeadershipAPI Endpoint `yaml:"leadership-api"`
 }
 
 // Endpoint identifies an HTTP service or a local source path.
@@ -61,6 +62,7 @@ func (c *Config) Validate() error {
 	}{
 		{"charm-api", c.Services.CharmAPI},
 		{"config-api", c.Services.ConfigAPI},
+		{"leadership-api", c.Services.LeadershipAPI},
 	} {
 		endpoint := service.endpoint
 		if endpoint.URL == "" && endpoint.Path == "" {

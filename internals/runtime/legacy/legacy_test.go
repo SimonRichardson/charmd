@@ -197,3 +197,28 @@ func (*legacySuite) TestUnknownConfigCannotExecute(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, `unknown charm config option "unknown"`)
 	c.Check(calls, tc.Equals, 0)
 }
+
+// TestLeadershipSnapshotPerInvocation verifies real hookd commands see the same
+// leadership throughout each invocation and cannot leak it into the next hook.
+func (*legacySuite) TestLeadershipSnapshotPerInvocation(c *tc.C) {
+	dir := charm(c, `
+first=$(is-leader --format=json)
+[ "$(is-leader)" = "$first" ]
+printf '%s\n' "$first"
+`, "dispatch")
+	exe, err := os.Executable()
+	c.Assert(err, tc.IsNil)
+
+	runtime := &Runtime{Executable: exe}
+	for _, leader := range []bool{true, false, true} {
+		var output bytes.Buffer
+		_, err := runtime.RunHook(context.Background(), charmRuntime.Hook{CharmDir: dir, Name: "leader-elected", Leader: leader, Stdout: &output, Stderr: &output})
+		c.Assert(err, tc.IsNil)
+
+		expected := "false\n"
+		if leader {
+			expected = "true\n"
+		}
+		c.Check(output.String(), tc.Equals, expected)
+	}
+}

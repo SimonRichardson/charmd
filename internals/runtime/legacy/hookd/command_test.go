@@ -10,7 +10,7 @@ var _ = tc.InternalSuite(&commandSuite{})
 
 // TestToolRegistry checks that every advertised tool can be constructed and unknown tools fail.
 func (*commandSuite) TestToolRegistry(c *tc.C) {
-	c.Check(ToolNames(), tc.DeepEquals, []string{"config-get", "juju-log", "status-get", "status-set"})
+	c.Check(ToolNames(), tc.DeepEquals, []string{"config-get", "is-leader", "juju-log", "status-get", "status-set"})
 	for _, name := range ToolNames() {
 		c.Check(IsTool(name), tc.Equals, true)
 		command, err := NewCommand(&testContext{}, name)
@@ -30,5 +30,5 @@ func (*commandSuite) TestToolNamesAreIndependent(c *tc.C) {
 	names[0] = "corrupted"
 	c.Check(IsTool("corrupted"), tc.Equals, false)
 	c.Check(IsTool("config-get"), tc.Equals, true)
-	c.Check(ToolNames(), tc.DeepEquals, []string{"config-get", "juju-log", "status-get", "status-set"})
+	c.Check(ToolNames(), tc.DeepEquals, []string{"config-get", "is-leader", "juju-log", "status-get", "status-set"})
 }

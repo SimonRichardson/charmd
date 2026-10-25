@@ -16,6 +16,7 @@ import (
 	"github.com/SimonRichardson/charmd/internals/config"
 	"github.com/SimonRichardson/charmd/internals/configapi"
 	"github.com/SimonRichardson/charmd/internals/daemon"
+	"github.com/SimonRichardson/charmd/internals/leadershipapi"
 	"github.com/SimonRichardson/charmd/internals/overlord"
 )
 
@@ -65,9 +66,9 @@ func (s *CharmdSuite) TestInstallCreatesDaemonChange(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	o, err := overlord.New(&overlord.Options{
-		StatePath: statePath,
-		CharmAPI:  charmClient,
-		ConfigAPI: configAPI,
+		StatePath:     statePath,
+		CharmAPI:      charmClient,
+		LeadershipAPI: newLeadershipClient(c), ConfigAPI: configAPI,
 	})
 	c.Assert(err, tc.IsNil)
 
@@ -95,4 +96,12 @@ func (s *CharmdSuite) TestInstallCreatesDaemonChange(c *tc.C) {
 	c.Assert(changes, tc.HasLen, 1)
 
 	c.Check(changes[0].Kind(), tc.Equals, "install-charm")
+}
+
+// newLeadershipClient supplies a required service without starting network activity.
+func newLeadershipClient(c *tc.C) leadershipapi.Client {
+	client, err := leadershipapi.New(config.Endpoint{URL: "https://leadership.example.test"})
+	c.Assert(err, tc.IsNil)
+
+	return client
 }

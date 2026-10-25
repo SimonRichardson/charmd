@@ -1,6 +1,6 @@
 //go:build linux
 
-package configapi
+package inotify
 
 import (
 	"context"
@@ -13,9 +13,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// watchFile watches the parent directory so atomic rename replacements keep
+// WatchFile watches the parent directory so atomic rename replacements keep
 // working. The watch is established before the initial read to avoid losing a write.
-func watchFile(ctx context.Context, path string, changed func() error) error {
+func WatchFile(ctx context.Context, path string, changed func() error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -23,11 +23,11 @@ func watchFile(ctx context.Context, path string, changed func() error) error {
 	if err != nil {
 		return fmt.Errorf("initialize inotify: %w", err)
 	}
-	file := os.NewFile(uintptr(fd), "config-inotify")
+	file := os.NewFile(uintptr(fd), "file-inotify")
 	defer file.Close()
 	mask := uint32(unix.IN_CLOSE_WRITE | unix.IN_MOVED_TO | unix.IN_DELETE_SELF | unix.IN_MOVE_SELF)
 	if _, err := unix.InotifyAddWatch(fd, filepath.Dir(path), mask); err != nil {
-		return fmt.Errorf("watch config directory: %w", err)
+		return fmt.Errorf("watch parent directory: %w", err)
 	}
 	// Closing the descriptor interrupts an idle pollable read on cancellation.
 	done := make(chan struct{})
@@ -63,7 +63,7 @@ func watchFile(ctx context.Context, path string, changed func() error) error {
 			}
 			name := strings.TrimRight(string(buffer[offset+unix.SizeofInotifyEvent:end]), "\x00")
 			if flags&(unix.IN_DELETE_SELF|unix.IN_MOVE_SELF|unix.IN_IGNORED) != 0 {
-				return fmt.Errorf("config directory watch was removed")
+				return fmt.Errorf("parent directory watch was removed")
 			}
 			// Overflow requires a full read even when no filename is available.
 			if flags&unix.IN_Q_OVERFLOW != 0 || name == filepath.Base(path) {

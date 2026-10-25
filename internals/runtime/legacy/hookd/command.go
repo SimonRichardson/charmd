@@ -14,6 +14,8 @@ type Context interface {
 	ID() string
 	// Config exposes read-only charm configuration for this invocation.
 	Config() map[string]any
+	// IsLeader returns the immutable invocation leadership snapshot.
+	IsLeader() bool
 	// Status returns the current workload status.
 	Status() charmRuntime.Status
 	// SetStatus replaces the invocation workload status.
@@ -37,6 +39,7 @@ type commandFactory func(Context) Command
 
 var commands = map[string]commandFactory{
 	"config-get": newConfigGet,
+	"is-leader":  newIsLeader,
 	"juju-log":   newLog,
 	"status-get": newStatusGet,
 	"status-set": newStatusSet,

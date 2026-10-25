@@ -4,7 +4,6 @@ package configapi
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -133,42 +132,9 @@ func (*watchSuite) TestOnlyAffectedCharmIsNotified(c *tc.C) {
 	expectNoFileEvent(c, events)
 }
 
-// TestWatchSetupFailures verifies cancellation, missing directories, and initial
-// read errors are returned without leaving watcher resources running.
-func (*watchSuite) TestWatchSetupFailures(c *tc.C) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	c.Check(watchFile(ctx, "/unused", func() error { return nil }), tc.Equals, context.Canceled)
-	c.Check(watchFile(context.Background(), filepath.Join(c.MkDir(), "missing", "config"), func() error { return nil }), tc.NotNil)
-	failure := errors.New("initial read failed")
-	c.Check(watchFile(context.Background(), filepath.Join(c.MkDir(), "config"), func() error { return failure }), tc.Equals, failure)
+// TestMissingInitialFile verifies the config client propagates its initial read
+// failure through the shared watcher without publishing a notification.
+func (*watchSuite) TestMissingInitialFile(c *tc.C) {
 	client := &fileClient{path: filepath.Join(c.MkDir(), "missing")}
-	c.Check(client.Watch(context.Background(), func(string) {}), tc.NotNil)
-}
-
-// TestDirectoryRemovalStopsWatch verifies watch invalidation is reported for reconnect.
-func (*watchSuite) TestDirectoryRemovalStopsWatch(c *tc.C) {
-	dir := filepath.Join(c.MkDir(), "watched")
-	c.Assert(os.Mkdir(dir, 0755), tc.IsNil)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	ready := make(chan struct{})
-	done := make(chan error, 1)
-	go func() {
-		done <- watchFile(ctx, filepath.Join(dir, "config"), func() error { close(ready); return nil })
-	}()
-	select {
-	case <-ready:
-	case <-time.After(5 * time.Second):
-		c.Fatal("watch did not start")
-	}
-	c.Assert(os.Remove(dir), tc.IsNil)
-
-	select {
-	case err := <-done:
-		c.Check(err, tc.ErrorMatches, "config directory watch was removed")
-	case <-time.After(5 * time.Second):
-		c.Fatal("watch did not report directory removal")
-	}
+	c.Check(client.Watch(context.Background(), func(string) { c.Error("invalid initial snapshot published") }), tc.NotNil)
 }

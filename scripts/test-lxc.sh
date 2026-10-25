@@ -110,8 +110,9 @@ timeout=$2
 keep=$3
 cd "$CHARMD"
 chmod +x ./charmd
-printf 'services:\n  charm-api:\n    path: %s/source\n  config-api:\n    path: %s/charm-config.yaml\n' "$CHARMD" "$CHARMD" > config.yaml
+printf 'services:\n  charm-api:\n    path: %s/source\n  config-api:\n    path: %s/charm-config.yaml\n  leadership-api:\n    path: %s/charm-leadership.yaml\n' "$CHARMD" "$CHARMD" "$CHARMD" > config.yaml
 printf 'charms:\n  "%s":\n    status: "world"\n' "$checksum" > charm-config.yaml
+printf 'charms:\n  "%s": false\n' "$checksum" > charm-leadership.yaml
 printf 'name: local-test\n' > "source/$checksum.manifest"
 ./charmd > daemon.log 2>&1 &
 daemon_pid=$!

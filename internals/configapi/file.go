@@ -8,6 +8,7 @@ import (
 	"os"
 	"reflect"
 
+	"github.com/SimonRichardson/charmd/internals/inotify"
 	"github.com/SimonRichardson/charmd/internals/logger"
 	"gopkg.in/yaml.v3"
 )
@@ -85,7 +86,7 @@ func (c *fileClient) Get(ctx context.Context, checksum string) (map[string]any, 
 func (c *fileClient) Watch(ctx context.Context, notify func(string)) error {
 	var previous map[string]map[string]any
 	initial := true
-	return watchFile(ctx, c.path, func() error {
+	return inotify.WatchFile(ctx, c.path, func() error {
 		next, err := c.read()
 		if err != nil {
 			if initial {

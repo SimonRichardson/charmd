@@ -29,6 +29,7 @@ type Context interface {
 // It owns charm data and results, independently of RPC and process execution.
 type HookContext struct {
 	mu     sync.Mutex
+	leader bool
 	id     string
 	name   string
 	config map[string]any
@@ -152,3 +153,6 @@ func (c *HookContext) applyConfig(values map[string]any) error {
 	}
 	return nil
 }
+
+// IsLeader returns the leadership snapshot fixed before the hook started.
+func (c *HookContext) IsLeader() bool { return c.leader }

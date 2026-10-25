@@ -42,6 +42,7 @@ type taskInfoProgress struct {
 	Total int    `json:"total"`
 }
 
+// changeToAPI snapshots a change and its tasks for the API. The caller holds the state lock.
 func changeToAPI(change *state.Change) *changeInfo {
 	status := change.Status()
 	result := &changeInfo{
@@ -79,6 +80,7 @@ func changeToAPI(change *state.Change) *changeInfo {
 	return result
 }
 
+// v1GetChanges lists changes matching the requested selector.
 func v1GetChanges(command *Command, request *http.Request) Response {
 	selector := request.URL.Query().Get("select")
 	if selector == "" {
@@ -108,6 +110,7 @@ func v1GetChanges(command *Command, request *http.Request) Response {
 	return SyncResponse(result)
 }
 
+// v1GetChange returns one persisted change and its tasks.
 func v1GetChange(command *Command, request *http.Request) Response {
 	id := request.PathValue("id")
 	st := command.d.overlord.State()
@@ -120,6 +123,7 @@ func v1GetChange(command *Command, request *http.Request) Response {
 	return SyncResponse(changeToAPI(change))
 }
 
+// v1GetChangeWait waits for a change to finish or for the request deadline.
 func v1GetChangeWait(command *Command, request *http.Request) Response {
 	id := request.PathValue("id")
 	st := command.d.overlord.State()
@@ -155,6 +159,7 @@ func v1GetChangeWait(command *Command, request *http.Request) Response {
 	return SyncResponse(changeToAPI(change))
 }
 
+// v1PostChange applies the requested operation to an existing change.
 func v1PostChange(command *Command, request *http.Request) Response {
 	id := request.PathValue("id")
 	st := command.d.overlord.State()

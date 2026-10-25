@@ -83,6 +83,7 @@ func (s Status) Ready() bool {
 	return false
 }
 
+// String returns the human-readable representation of this value.
 func (s Status) String() string {
 	switch s {
 	case DefaultStatus:
@@ -152,10 +153,16 @@ type Change struct {
 
 type byReadyTime []*Change
 
-func (a byReadyTime) Len() int           { return len(a) }
-func (a byReadyTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+// Len returns the number of changes being sorted.
+func (a byReadyTime) Len() int { return len(a) }
+
+// Swap exchanges two changes in the sorting slice.
+func (a byReadyTime) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+
+// Less orders changes by their ready timestamps.
 func (a byReadyTime) Less(i, j int) bool { return a[i].readyTime.Before(a[j].readyTime) }
 
+// newChange initializes a change and its readiness notification channel.
 func newChange(state *State, id, kind, summary string) *Change {
 	return &Change{
 		state:   state,
@@ -292,12 +299,14 @@ var statusOrder = []Status{
 	HoldStatus,
 }
 
+// init verifies that every non-default status has a priority ordering.
 func init() {
 	if len(statusOrder) != nStatuses-1 {
 		panic("statusOrder has wrong number of elements")
 	}
 }
 
+// isTaskWaiting walks task dependencies with memoization and cycle detection to determine whether work is waiting.
 func (c *Change) isTaskWaiting(visited map[string]taskWaitComputeStatus, t *Task, deps []*Task) bool {
 	taskID := t.ID()
 	// Retrieve the compute status of the wait for the task, if not
@@ -441,11 +450,13 @@ func (c *Change) addNotice() error {
 	return err
 }
 
+// shouldSkipChangeUpdateNotice suppresses repeated statuses and transient retry transitions.
 func shouldSkipChangeUpdateNotice(old, new Status) bool {
 	// Skip alternating Doing->Do->Doing and Undoing->Undo->Undoing notices
 	return (old == new) || (old == DoingStatus && new == DoStatus) || (old == UndoingStatus && new == UndoStatus)
 }
 
+// notifyStatusChange updates observers and emits a notice for meaningful status transitions.
 func (c *Change) notifyStatusChange(new Status) {
 	if c.lastObservedStatus != new {
 		c.state.notifyChangeStatusChangedHandlers(c, c.lastObservedStatus, new)
@@ -470,6 +481,7 @@ func (c *Change) SetStatus(s Status) {
 	c.notifyStatusChange(c.Status())
 }
 
+// markReady closes the readiness channel once and records the first ready timestamp.
 func (c *Change) markReady() {
 	select {
 	case <-c.ready:
@@ -486,6 +498,7 @@ func (c *Change) Ready() <-chan struct{} {
 	return c.ready
 }
 
+// detectChangeReady marks a change ready when all tasks except the excluded task have settled.
 func (c *Change) detectChangeReady(excludeTask *Task) {
 	for _, tid := range c.taskIDs {
 		task := c.state.tasks[tid]
@@ -542,6 +555,7 @@ func (c *Change) IsReady() bool {
 	return false
 }
 
+// taskCleanChanged updates change cleanliness when an associated task is cleaned.
 func (c *Change) taskCleanChanged() {
 	if !c.IsReady() {
 		panic("internal error: attempted to set a task clean while change not ready")
@@ -577,6 +591,7 @@ type taskError struct {
 	error string
 }
 
+// Error returns the error message for this failure.
 func (e *changeError) Error() string {
 	var buf bytes.Buffer
 	buf.WriteString("cannot perform the following tasks:\n")
@@ -586,6 +601,7 @@ func (e *changeError) Error() string {
 	return strings.TrimSuffix(buf.String(), "\n")
 }
 
+// stripErrorMsg extracts the message from an error entry in a task log.
 func stripErrorMsg(msg string) (string, bool) {
 	i := strings.Index(msg, " ")
 	if i >= 0 && strings.HasPrefix(msg[i:], " ERROR ") {
@@ -700,6 +716,7 @@ func (c *Change) AbortUnreadyLanes() {
 	c.abortUnreadyLanes()
 }
 
+// abortUnreadyLanes selects and aborts lanes that still contain unfinished tasks.
 func (c *Change) abortUnreadyLanes() {
 	lanesWithLiveTasks := map[int]bool{}
 
@@ -731,6 +748,7 @@ func taskEffectiveStatus(t *Task) Status {
 	return status
 }
 
+// abortLanes aborts tasks in the selected lanes while preserving tasks needed by healthy lanes.
 func (c *Change) abortLanes(lanes []int, abortedLanes map[int]bool, seenTasks map[string]bool) {
 	hasLive := make(map[int]bool)
 	hasDead := make(map[int]bool)
@@ -783,6 +801,7 @@ NextLaneTask:
 	}
 }
 
+// abortTasks stops or undoes selected tasks and propagates cancellation through affected lanes.
 func (c *Change) abortTasks(tasks []*Task, abortedLanes map[int]bool, seenTasks map[string]bool) {
 	var lanes []int
 	for i := 0; i < len(tasks); i++ {
@@ -825,8 +844,10 @@ type TaskDependencyCycleError struct {
 	msg string
 }
 
+// Error returns the error message for this failure.
 func (e *TaskDependencyCycleError) Error() string { return e.msg }
 
+// Is reports whether the target is a task dependency cycle error.
 func (e *TaskDependencyCycleError) Is(err error) bool {
 	_, ok := err.(*TaskDependencyCycleError)
 	return ok

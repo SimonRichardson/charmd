@@ -20,6 +20,7 @@ const (
 
 // Response writes itself to an HTTP response.
 type Response interface {
+	// ServeHTTP writes the response status, headers, and body.
 	ServeHTTP(http.ResponseWriter, *http.Request)
 }
 type response struct {
@@ -30,6 +31,7 @@ type response struct {
 	Change     string       `json:"change,omitempty"`
 }
 
+// ServeHTTP implements the HTTP response contract for this responder.
 func (r *response) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(r.Status)
@@ -48,8 +50,13 @@ func AsyncResponse(change string) Response {
 
 type errorResponder func(string, ...any) Response
 
+// ServeHTTP satisfies Response for the error factory; call constructs the actual response.
 func (e errorResponder) ServeHTTP(http.ResponseWriter, *http.Request) {}
-func (e errorResponder) call(format string, args ...any) Response     { return e(format, args...) }
+
+// call formats an error through the response factory.
+func (e errorResponder) call(format string, args ...any) Response { return e(format, args...) }
+
+// makeErrorResponder creates a response factory for one HTTP error status.
 func makeErrorResponder(status int) errorResponder {
 	return func(format string, args ...any) Response {
 		return &response{

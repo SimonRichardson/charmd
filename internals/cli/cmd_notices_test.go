@@ -61,6 +61,7 @@ func (s *CharmdSuite) TestNotices(c *tc.C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices", "--abs-time"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	c.Check(s.Stdout(), tc.Equals, `
 ID   User    Type     Key    First                 Repeated              Occurrences
@@ -114,6 +115,7 @@ func (s *CharmdSuite) TestNoticesFiltersUsers(c *tc.C) {
 	rest, err := cli.ParserForTest().ParseArgs([]string{
 		"notices", "--abs-time", "--users", "all", "--type", "custom", "--key", "a.b/c", "--type", "warning"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	c.Check(s.Stdout(), tc.Equals, `
 ID   User  Type    Key    First                 Repeated              Occurrences
@@ -157,6 +159,7 @@ func (s *CharmdSuite) TestNoticesFiltersUID(c *tc.C) {
 	rest, err := cli.ParserForTest().ParseArgs([]string{
 		"notices", "--abs-time", "--uid", "1000", "--type", "custom", "--key", "a.b/c", "--type", "warning"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	c.Check(s.Stdout(), tc.Equals, `
 ID   User  Type    Key    First                 Repeated              Occurrences
@@ -202,6 +205,7 @@ func (s *CharmdSuite) TestNoticesAfter(c *tc.C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices", "--abs-time"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	c.Check(s.Stdout(), tc.Equals, `
 ID   User  Type    Key    First                 Repeated              Occurrences
@@ -229,6 +233,7 @@ func (s *CharmdSuite) TestNoticesNoNotices(c *tc.C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	c.Check(s.Stdout(), tc.Equals, "")
 	c.Check(s.Stderr(), tc.Equals, "No matching notices.\n")
@@ -263,6 +268,7 @@ func (s *CharmdSuite) TestNoticesTimeout(c *tc.C) {
 	rest, err := cli.ParserForTest().ParseArgs([]string{
 		"notices", "--abs-time", "--timeout", "1s"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	c.Check(s.Stdout(), tc.Equals, `
 ID   User  Type    Key    First                 Repeated              Occurrences
@@ -290,6 +296,7 @@ func (s *CharmdSuite) TestNoticesNoNoticesTimeout(c *tc.C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices", "--timeout", "1s"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	c.Check(s.Stdout(), tc.Equals, "")
 	c.Check(s.Stderr(), tc.Equals, "No matching notices after waiting 1s.\n")
@@ -325,6 +332,7 @@ func (s *CharmdSuite) TestNoticesJSON(c *tc.C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices", "--format", "json"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	expected := `{"notices":[{"id":"1","user-id":1000,"type":"custom","key":"a.b/c",` +
 		`"first-occurred":"2023-09-05T17:18:00Z","last-occurred":"2023-09-05T19:18:00Z",` +
@@ -366,6 +374,7 @@ func (s *CharmdSuite) TestNoticesYAML(c *tc.C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices", "--format", "yaml"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	c.Check(s.Stdout(), tc.Equals, `
 notices:
@@ -400,6 +409,7 @@ func (s *CharmdSuite) TestNoNoticesJSON(c *tc.C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices", "--format", "json"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	c.Check(s.Stdout(), tc.Equals, `{"notices":[]}`+"\n")
 	c.Check(s.Stderr(), tc.Equals, "")
@@ -414,6 +424,7 @@ func (s *CharmdSuite) TestNoNoticesYAML(c *tc.C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notices", "--format", "yaml"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	c.Check(s.Stdout(), tc.Equals, "notices: []\n")
 	c.Check(s.Stderr(), tc.Equals, "")

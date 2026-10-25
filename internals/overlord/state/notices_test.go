@@ -54,12 +54,17 @@ func (s *noticesSuite) TestMarshal(c *tc.C) {
 
 	firstOccurred, err := time.Parse(time.RFC3339, n["first-occurred"].(string))
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(!firstOccurred.Before(start), tc.Equals, true) // firstOccurred >= start
+
 	lastOccurred, err := time.Parse(time.RFC3339, n["last-occurred"].(string))
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(lastOccurred.After(firstOccurred), tc.Equals, true) // lastOccurred > firstOccurred
+
 	lastRepeated, err := time.Parse(time.RFC3339, n["last-repeated"].(string))
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(lastRepeated.After(firstOccurred), tc.Equals, true) // lastRepeated > firstOccurred
 
 	delete(n, "first-occurred")
@@ -92,9 +97,12 @@ func (s *noticesSuite) TestAddNoticeCopiesInput(c *tc.C) {
 
 	notices := st.Notices(nil)
 	c.Assert(notices, tc.HasLen, 1)
+
 	userID, isSet := notices[0].UserID()
 	c.Assert(isSet, tc.Equals, true)
+
 	c.Assert(userID, tc.Equals, uint32(1000))
+
 	n := noticeToMap(c, notices[0])
 	c.Assert(n["last-data"], tc.DeepEquals, map[string]any{"key": "value"})
 }
@@ -181,6 +189,7 @@ func (s *noticesSuite) TestOccurrences(c *tc.C) {
 
 	notices := st.Notices(nil)
 	c.Assert(notices, tc.HasLen, 2)
+
 	n := noticeToMap(c, notices[0])
 	c.Check(n["id"], tc.Equals, "1")
 	c.Check(n["occurrences"], tc.Equals, 3.0)
@@ -213,9 +222,11 @@ func (s *noticesSuite) testRepeatAfter(c *tc.C, first, second, delay time.Durati
 
 	notices := st.Notices(nil)
 	c.Assert(notices, tc.HasLen, 1)
+
 	n := noticeToMap(c, notices[0])
 	firstOccurred, err := time.Parse(time.RFC3339, n["first-occurred"].(string))
 	c.Assert(err, tc.IsNil)
+
 	lastRepeated, err := time.Parse(time.RFC3339, n["last-repeated"].(string))
 	c.Assert(err, tc.IsNil)
 
@@ -230,9 +241,11 @@ func (s *noticesSuite) testRepeatAfter(c *tc.C, first, second, delay time.Durati
 	})
 	notices = st.Notices(nil)
 	c.Assert(notices, tc.HasLen, 1)
+
 	n = noticeToMap(c, notices[0])
 	newLastRepeated, err := time.Parse(time.RFC3339, n["last-repeated"].(string))
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(newLastRepeated.After(lastRepeated), tc.Equals, true)
 }
 
@@ -262,6 +275,7 @@ func (s *noticesSuite) TestNoticesFilterUserID(c *tc.C) {
 	// User ID set
 	notices = st.Notices(&state.NoticeFilter{UserID: &uid2})
 	c.Assert(notices, tc.HasLen, 3)
+
 	n := noticeToMap(c, notices[0])
 	c.Check(n["user-id"], tc.Equals, float64(uid2))
 	c.Check(n["type"], tc.Equals, "change-update")
@@ -300,6 +314,7 @@ func (s *noticesSuite) TestNoticesFilterType(c *tc.C) {
 	// One type
 	notices = st.Notices(&state.NoticeFilter{Types: []state.NoticeType{state.WarningNotice}})
 	c.Assert(notices, tc.HasLen, 2)
+
 	n := noticeToMap(c, notices[0])
 	c.Check(n["user-id"], tc.Equals, nil)
 	c.Check(n["type"], tc.Equals, "warning")
@@ -315,6 +330,7 @@ func (s *noticesSuite) TestNoticesFilterType(c *tc.C) {
 		state.CustomNotice,
 	}})
 	c.Assert(notices, tc.HasLen, 2)
+
 	n = noticeToMap(c, notices[0])
 	c.Check(n["user-id"], tc.Equals, nil)
 	c.Check(n["type"], tc.Equals, "custom")
@@ -347,6 +363,7 @@ func (s *noticesSuite) TestNoticesFilterKey(c *tc.C) {
 	// One key
 	notices = st.Notices(&state.NoticeFilter{Keys: []string{"example.com/x"}})
 	c.Assert(notices, tc.HasLen, 1)
+
 	n := noticeToMap(c, notices[0])
 	c.Check(n["user-id"], tc.Equals, nil)
 	c.Check(n["type"], tc.Equals, "custom")
@@ -358,6 +375,7 @@ func (s *noticesSuite) TestNoticesFilterKey(c *tc.C) {
 		"foo.com/baz",
 	}})
 	c.Assert(notices, tc.HasLen, 2)
+
 	n = noticeToMap(c, notices[0])
 	c.Check(n["user-id"], tc.Equals, nil)
 	c.Check(n["type"], tc.Equals, "custom")
@@ -376,6 +394,7 @@ func (s *noticesSuite) TestNoticesFilterAfter(c *tc.C) {
 	addNotice(c, st, nil, state.CustomNotice, "foo.com/x", nil)
 	notices := st.Notices(nil)
 	c.Assert(notices, tc.HasLen, 1)
+
 	n := noticeToMap(c, notices[0])
 	lastRepeated, err := time.Parse(time.RFC3339, n["last-repeated"].(string))
 	c.Assert(err, tc.IsNil)
@@ -390,6 +409,7 @@ func (s *noticesSuite) TestNoticesFilterAfter(c *tc.C) {
 	// After set
 	notices = st.Notices(&state.NoticeFilter{After: lastRepeated})
 	c.Assert(notices, tc.HasLen, 1)
+
 	n = noticeToMap(c, notices[0])
 	c.Check(n["user-id"], tc.Equals, nil)
 	c.Check(n["type"], tc.Equals, "custom")
@@ -412,12 +432,14 @@ func (s *noticesSuite) TestNotice(c *tc.C) {
 
 	notices := st.Notices(nil)
 	c.Assert(notices, tc.HasLen, 3)
+
 	n := noticeToMap(c, notices[1])
 	noticeId, ok := n["id"].(string)
 	c.Assert(ok, tc.Equals, true)
 
 	notice := st.Notice(noticeId)
 	c.Assert(notice, tc.NotNil)
+
 	n = noticeToMap(c, notice)
 	c.Check(n["user-id"], tc.Equals, 123.0)
 	c.Check(n["type"], tc.Equals, "custom")
@@ -443,11 +465,13 @@ func (s *noticesSuite) TestCheckpoint(c *tc.C) {
 
 	st2, err := state.ReadState(nil, bytes.NewReader(backend.checkpoints[0]))
 	c.Assert(err, tc.IsNil)
+
 	st2.Lock()
 	defer st2.Unlock()
 
 	notices := st2.Notices(nil)
 	c.Assert(notices, tc.HasLen, 1)
+
 	n := noticeToMap(c, notices[0])
 	c.Check(n["user-id"], tc.Equals, nil)
 	c.Check(n["type"], tc.Equals, "custom")
@@ -466,6 +490,7 @@ func (s *noticesSuite) TestPruneNoticesCheckpoint(c *tc.C) {
 
 	st, err := state.ReadState(backend, bytes.NewReader(backend.checkpoints[0]))
 	c.Assert(err, tc.IsNil)
+
 	st.Lock()
 	st.Prune(time.Now(), 0, 0, 0, 1)
 	st.Unlock()
@@ -473,9 +498,11 @@ func (s *noticesSuite) TestPruneNoticesCheckpoint(c *tc.C) {
 
 	st, err = state.ReadState(nil, bytes.NewReader(backend.checkpoints[1]))
 	c.Assert(err, tc.IsNil)
+
 	st.Lock()
 	defer st.Unlock()
 	c.Assert(st.Notices(nil), tc.HasLen, 1)
+
 	n := noticeToMap(c, st.Notices(nil)[0])
 	c.Assert(n["key"], tc.Equals, "foo.com/new")
 }
@@ -486,6 +513,7 @@ func (s *noticesSuite) TestDeleteExpired(c *tc.C) {
 	defer st.Unlock()
 
 	c.Assert(st.NumNotices(), tc.Equals, 0)
+
 	c.Assert(st.LatestWarningTime().IsZero(), tc.Equals, true)
 
 	now := time.Now()
@@ -537,6 +565,7 @@ func (s *noticesSuite) TestDeleteExpired(c *tc.C) {
 
 	notices := st.Notices(nil)
 	c.Assert(notices, tc.HasLen, 5)
+
 	n := noticeToMap(c, notices[0])
 	c.Check(n["key"], tc.Equals, "foo.com/six")
 	n = noticeToMap(c, notices[1])
@@ -553,6 +582,7 @@ func (s *noticesSuite) TestDeleteExpired(c *tc.C) {
 	st.Prune(now, 0, 0, 0, 3)
 	notices = st.Notices(nil)
 	c.Assert(notices, tc.HasLen, 3)
+
 	n = noticeToMap(c, notices[0])
 	c.Check(n["key"], tc.Equals, "foo.com/five")
 	n = noticeToMap(c, notices[1])
@@ -574,7 +604,9 @@ func (s *noticesSuite) TestWaitNoticesExisting(c *tc.C) {
 	defer cancel()
 	notices, err := st.WaitNotices(ctx, &state.NoticeFilter{Keys: []string{"example.com/x"}})
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(notices, tc.HasLen, 1)
+
 	n := noticeToMap(c, notices[0])
 	c.Check(n["user-id"], tc.Equals, nil)
 	c.Check(n["type"], tc.Equals, "custom")
@@ -598,7 +630,9 @@ func (s *noticesSuite) TestWaitNoticesNew(c *tc.C) {
 	defer cancel()
 	notices, err := st.WaitNotices(ctx, &state.NoticeFilter{Keys: []string{"example.com/y"}})
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(notices, tc.HasLen, 1)
+
 	n := noticeToMap(c, notices[0])
 	c.Assert(n["key"], tc.Equals, "example.com/y")
 }
@@ -612,6 +646,7 @@ func (s *noticesSuite) TestWaitNoticesTimeout(c *tc.C) {
 	defer cancel()
 	notices, err := st.WaitNotices(ctx, nil)
 	c.Assert(err, tc.ErrorMatches, "context deadline exceeded")
+
 	c.Assert(notices, tc.HasLen, 0)
 }
 
@@ -625,6 +660,7 @@ func (s *noticesSuite) TestReadStateWaitNotices(c *tc.C) {
 
 	st2, err := state.ReadState(nil, bytes.NewBuffer(marshalled))
 	c.Assert(err, tc.IsNil)
+
 	st2.Lock()
 	defer st2.Unlock()
 
@@ -632,6 +668,7 @@ func (s *noticesSuite) TestReadStateWaitNotices(c *tc.C) {
 	defer cancel()
 	notices, err := st2.WaitNotices(ctx, nil)
 	c.Assert(errors.Is(err, context.DeadlineExceeded), tc.Equals, true)
+
 	c.Assert(notices, tc.HasLen, 0)
 }
 
@@ -655,11 +692,14 @@ func (s *noticesSuite) TestWaitNoticesLongPoll(c *tc.C) {
 	for total := 0; total < 10; {
 		notices, err := st.WaitNotices(ctx, &state.NoticeFilter{After: after})
 		c.Assert(err, tc.IsNil)
+
 		c.Assert(len(notices) > 0, tc.Equals, true)
+
 		total += len(notices)
 		n := noticeToMap(c, notices[len(notices)-1])
 		lastRepeated, err := time.Parse(time.RFC3339, n["last-repeated"].(string))
 		c.Assert(err, tc.IsNil)
+
 		after = lastRepeated
 	}
 }
@@ -681,7 +721,9 @@ func (s *noticesSuite) TestWaitNoticesConcurrent(c *tc.C) {
 			key := fmt.Sprintf("a.b/%d", i)
 			notices, err := st.WaitNotices(ctx, &state.NoticeFilter{Keys: []string{key}})
 			c.Assert(err, tc.IsNil)
+
 			c.Assert(notices, tc.HasLen, 1)
+
 			n := noticeToMap(c, notices[0])
 			c.Assert(n["key"], tc.Equals, key)
 		}(i)
@@ -711,9 +753,11 @@ func (s *noticesSuite) TestWaitNoticesConcurrent(c *tc.C) {
 func noticeToMap(c *tc.C, notice *state.Notice) map[string]any {
 	buf, err := json.Marshal(notice)
 	c.Assert(err, tc.IsNil)
+
 	var n map[string]any
 	err = json.Unmarshal(buf, &n)
 	c.Assert(err, tc.IsNil)
+
 	return n
 }
 

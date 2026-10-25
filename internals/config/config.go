@@ -78,6 +78,7 @@ func ValidateEndpoint(endpoint Endpoint) error {
 	return validateHTTPURL(endpoint.URL)
 }
 
+// validateHTTPURL checks the URL requirements shared by configured HTTP services.
 func validateHTTPURL(rawURL string) error {
 	if rawURL == "" {
 		return fmt.Errorf("is required")

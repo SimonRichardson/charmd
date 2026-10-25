@@ -53,11 +53,13 @@ func (s *daemonSuite) TestPostCharmsCreatesInstallChange(c *tc.C) {
 	d.Handler().ServeHTTP(recorder, req)
 
 	c.Assert(recorder.Code, tc.Equals, http.StatusAccepted)
+
 	var response struct {
 		Type   string `json:"type"`
 		Change string `json:"change"`
 	}
 	c.Assert(json.NewDecoder(recorder.Body).Decode(&response), tc.IsNil)
+
 	c.Check(response.Type, tc.Equals, "async")
 	c.Assert(response.Change, tc.Not(tc.Equals), "")
 
@@ -66,15 +68,19 @@ func (s *daemonSuite) TestPostCharmsCreatesInstallChange(c *tc.C) {
 	defer st.Unlock()
 	change := st.Change(response.Change)
 	c.Assert(change, tc.NotNil)
+
 	c.Check(change.Kind(), tc.Equals, "install-charm")
 	tasks := change.Tasks()
-	c.Assert(tasks, tc.HasLen, 2)
+	c.Assert(tasks, tc.HasLen, 3)
+
 	c.Check(tasks[0].Kind(), tc.Equals, charmstate.FetchCharmTask)
 	c.Check(tasks[1].Kind(), tc.Equals, charmstate.InstallCharmTask)
 	c.Check(tasks[1].WaitTasks(), tc.DeepEquals, []*state.Task{tasks[0]})
-	for _, task := range tasks {
+	c.Check(tasks[2].WaitTasks(), tc.DeepEquals, []*state.Task{tasks[1]})
+	for _, task := range tasks[:2] {
 		var checksum string
 		c.Assert(task.Get("charm-sha256", &checksum), tc.IsNil)
+
 		c.Check(checksum, tc.Equals, "0123456789abcdef0123456789abcdef"+"0123456789abcdef0123456789abcdef")
 	}
 }
@@ -97,6 +103,7 @@ func (s *daemonSuite) TestPostCharmsRejectsInvalidRequest(c *tc.C) {
 			Type       string `json:"type"`
 		}
 		c.Assert(json.NewDecoder(recorder.Body).Decode(&response), tc.IsNil, tc.Commentf("body %s", body))
+
 		c.Check(response.StatusCode, tc.Equals, http.StatusBadRequest, tc.Commentf("body %s", body))
 		c.Check(response.Type, tc.Equals, "error", tc.Commentf("body %s", body))
 	}
@@ -111,11 +118,13 @@ func (s *daemonSuite) TestPostCharmsRejectsInvalidRequest(c *tc.C) {
 func newOverlord(c *tc.C) *overlord.Overlord {
 	charmAPI, err := charmapi.New(config.Endpoint{URL: "https://agent.example.test"})
 	c.Assert(err, tc.IsNil)
+
 	o, err := overlord.New(&overlord.Options{
 		StatePath: filepath.Join(c.MkDir(), "state.json"),
 		CharmAPI:  charmAPI,
 	})
 	c.Assert(err, tc.IsNil)
+
 	return o
 }
 

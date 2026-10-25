@@ -23,6 +23,7 @@ type cmdInstall struct {
 	} `positional-args:"yes"`
 }
 
+// init registers the charm installation command.
 func init() {
 	AddCommand(&CmdInfo{
 		Name:        "install",

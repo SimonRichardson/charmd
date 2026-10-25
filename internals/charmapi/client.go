@@ -145,6 +145,7 @@ func (c *fileClient) DownloadCharm(_ context.Context, info DownloadInfo, destina
 	return nil
 }
 
+// downloadCharm streams an archive into a temporary file and verifies its digest before publishing it.
 func downloadCharm(ctx context.Context, client *http.Client, info DownloadInfo, destination string) error {
 	if err := validateSHA256(info.SHA256); err != nil {
 		return err
@@ -190,6 +191,7 @@ func downloadCharm(ctx context.Context, client *http.Client, info DownloadInfo, 
 	return nil
 }
 
+// validateSHA256 rejects checksums that are not 64 hexadecimal characters.
 func validateSHA256(checksum string) error {
 	if len(checksum) != sha256.Size*2 {
 		return fmt.Errorf("invalid SHA-256 checksum %q", checksum)
@@ -200,6 +202,7 @@ func validateSHA256(checksum string) error {
 	return nil
 }
 
+// validateDownloadURL requires an absolute HTTP or HTTPS download URL.
 func validateDownloadURL(rawURL string) error {
 	u, err := url.Parse(rawURL)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {

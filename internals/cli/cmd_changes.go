@@ -51,6 +51,7 @@ func RunWithSocket(args []string, api *client.Client, socketPath string, out, er
 	}
 }
 
+// runChanges lists changes selected by the command arguments.
 func runChanges(args []string, api *client.Client, out, errOut io.Writer) error {
 	if len(args) > 1 {
 		return fmt.Errorf("changes takes at most one service name")
@@ -104,6 +105,7 @@ func runChanges(args []string, api *client.Client, out, errOut io.Writer) error 
 	return err
 }
 
+// runTasks displays the tasks belonging to the requested change.
 func runTasks(args []string, api *client.Client, out io.Writer) error {
 	if len(args) != 1 {
 		return fmt.Errorf("tasks requires a change ID")
@@ -137,6 +139,7 @@ func runTasks(args []string, api *client.Client, out io.Writer) error {
 	return err
 }
 
+// formatTime renders a timestamp for the command table.
 func formatTime(t time.Time) string {
 	if t.IsZero() {
 		return "-"
@@ -144,6 +147,7 @@ func formatTime(t time.Time) string {
 	return t.Local().Format("2006-01-02 15:04:05")
 }
 
+// formatReady renders a completion timestamp or the placeholder for unfinished work.
 func formatReady(t time.Time) string {
 	if t.IsZero() {
 		return "-"

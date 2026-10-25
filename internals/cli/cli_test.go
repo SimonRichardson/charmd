@@ -36,6 +36,7 @@ func (s *CharmdSuite) SetUpTest(c *tc.C) {
 	s.oldConfig = os.Getenv("XDG_CONFIG_HOME")
 	config := c.MkDir()
 	c.Assert(os.Setenv("XDG_CONFIG_HOME", config), tc.IsNil)
+
 	s.cliStatePath = filepath.Join(config, "charmd", "cli.json")
 	s.socket = filepath.Join(c.MkDir(), ".charmd.socket")
 	cli.SetNoticeTestClient(nil, s.socket)
@@ -66,16 +67,20 @@ func (s *CharmdSuite) RedirectClientToTestServer(handler func(http.ResponseWrite
 func (s *CharmdSuite) readCLIState(c *tc.C) map[string]any {
 	data, err := os.ReadFile(s.cliStatePath)
 	c.Assert(err, tc.IsNil)
+
 	var all struct {
 		Charmd map[string]map[string]any `json:"charmd"`
 	}
 	c.Assert(json.Unmarshal(data, &all), tc.IsNil)
+
 	return all.Charmd[s.socket]
 }
 
 func (s *CharmdSuite) writeCLIState(c *tc.C, state map[string]any) {
 	data, err := json.Marshal(map[string]any{"charmd": map[string]any{s.socket: state}})
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(os.MkdirAll(filepath.Dir(s.cliStatePath), 0700), tc.IsNil)
+
 	c.Assert(os.WriteFile(s.cliStatePath, data, 0600), tc.IsNil)
 }

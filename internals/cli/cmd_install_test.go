@@ -24,6 +24,7 @@ func (s *CharmdSuite) TestInstall(c *tc.C) {
 		c.Check(request.URL.Path, tc.Equals, "/v1/charms")
 		var body map[string]any
 		c.Assert(json.NewDecoder(request.Body).Decode(&body), tc.IsNil)
+
 		c.Check(body, tc.DeepEquals, map[string]any{
 			"action": "install",
 			"sha256": "0123456789abcdef0123456789abcdef" +
@@ -38,6 +39,7 @@ func (s *CharmdSuite) TestInstall(c *tc.C) {
 		"install", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 	})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	c.Check(s.Stdout(), tc.Equals, "Change 1 created.\n")
 	c.Check(s.Stderr(), tc.Equals, "")
@@ -56,24 +58,28 @@ func (s *CharmdSuite) TestInstallRejectsMissingOrInvalidChecksum(c *tc.C) {
 func (s *CharmdSuite) TestInstallCreatesDaemonChange(c *tc.C) {
 	charmClient, err := charmapi.New(config.Endpoint{Path: c.MkDir()})
 	c.Assert(err, tc.IsNil)
+
 	statePath := filepath.Join(c.MkDir(), "state.json")
 	o, err := overlord.New(&overlord.Options{
 		StatePath: statePath,
 		CharmAPI:  charmClient,
 	})
 	c.Assert(err, tc.IsNil)
+
 	defer o.Stop()
 
 	server := httptest.NewServer(daemon.New(o).Handler())
 	defer server.Close()
 	api, err := client.New(&client.Config{BaseURL: server.URL})
 	c.Assert(err, tc.IsNil)
+
 	var stdout, stderr bytes.Buffer
 	err = cli.RunWithClient(
 		[]string{"install", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"},
 		api, &stdout, &stderr,
 	)
 	c.Assert(err, tc.IsNil)
+
 	c.Check(stderr.String(), tc.Equals, "")
 	c.Check(stdout.String(), tc.Matches, `Change [0-9]+ created\.\n`)
 
@@ -82,5 +88,6 @@ func (s *CharmdSuite) TestInstallCreatesDaemonChange(c *tc.C) {
 	defer st.Unlock()
 	changes := st.Changes()
 	c.Assert(changes, tc.HasLen, 1)
+
 	c.Check(changes[0].Kind(), tc.Equals, "install-charm")
 }

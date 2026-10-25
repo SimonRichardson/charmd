@@ -21,6 +21,7 @@ import (
 	"testing"
 )
 
+// PrintGoroutineLeaks reports goroutines left running after the supplied test completes.
 func PrintGoroutineLeaks(t *testing.T, f func(t *testing.T)) {
 	t.Helper()
 
@@ -74,6 +75,7 @@ func PrintGoroutineLeaks(t *testing.T, f func(t *testing.T)) {
 	f(t)
 }
 
+// leakSentinel remains visible to goroutine inspection until its completion channel closes.
 func leakSentinel(done chan struct{}) {
 	<-done
 }

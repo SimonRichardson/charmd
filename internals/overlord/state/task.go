@@ -63,6 +63,7 @@ type Task struct {
 	atTime time.Time
 }
 
+// newTask initializes a pending task with empty custom data and a spawn timestamp.
 func newTask(state *State, id, kind, summary string) *Task {
 	return &Task{
 		state:   state,
@@ -238,6 +239,7 @@ func (t *Task) Status() Status {
 	return t.status
 }
 
+// changeStatus updates task timing and notifies its change and registered observers.
 func (t *Task) changeStatus(old, new Status) {
 	if old == new {
 		return
@@ -382,21 +384,25 @@ func (t *Task) AtTime() time.Time {
 	return t.atTime
 }
 
+// accumulateDoingTime adds time spent executing the task handler.
 func (t *Task) accumulateDoingTime(duration time.Duration) {
 	t.state.writing()
 	t.doingTime += duration
 }
 
+// accumulateUndoingTime adds time spent executing the undo handler.
 func (t *Task) accumulateUndoingTime(duration time.Duration) {
 	t.state.writing()
 	t.undoingTime += duration
 }
 
+// DoingTime returns the accumulated duration of task execution.
 func (t *Task) DoingTime() time.Duration {
 	t.state.reading()
 	return t.doingTime
 }
 
+// UndoingTime returns the accumulated duration of task rollback.
 func (t *Task) UndoingTime() time.Duration {
 	t.state.reading()
 	return t.undoingTime
@@ -412,11 +418,13 @@ const (
 
 var timeNow = time.Now
 
+// FakeTime replaces the state clock and returns a function that restores it.
 func FakeTime(now time.Time) (restore func()) {
 	timeNow = func() time.Time { return now }
 	return func() { timeNow = time.Now }
 }
 
+// addLog appends a timestamped task log entry and enforces the log size limit.
 func (t *Task) addLog(kind, format string, args []any) {
 	if len(t.log) > 9 {
 		copy(t.log, t.log[len(t.log)-9:])
@@ -483,6 +491,7 @@ func (t *Task) Clear(key string) {
 	delete(t.data, key)
 }
 
+// addOnce appends a string only when the slice does not already contain it.
 func addOnce(set []string, s string) []string {
 	if slices.Contains(set, s) {
 		return set

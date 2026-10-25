@@ -18,12 +18,14 @@ func (s *configSuite) TestDecode(c *tc.C) {
 		"    url: https://agent.example.test/charm\n"
 	config, err := Decode(strings.NewReader(rawConfig))
 	c.Assert(err, tc.IsNil)
+
 	c.Check(config.Services.CharmAPI.URL, tc.Equals, "https://agent.example.test/charm")
 }
 
 func (s *configSuite) TestDecodeLocalCharmAPI(c *tc.C) {
 	config, err := Decode(strings.NewReader("services:\n  charm-api:\n    path: /srv/charms\n"))
 	c.Assert(err, tc.IsNil)
+
 	c.Check(config.Services.CharmAPI.Path, tc.Equals, "/srv/charms")
 }
 

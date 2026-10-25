@@ -41,6 +41,7 @@ func (cs *clientSuite) TestClientChange(c *tc.C) {
 
 	chg, err := cs.cli.Change("uno")
 	c.Assert(err, tc.IsNil)
+
 	c.Check(chg, tc.DeepEquals, &client.Change{
 		ID:      "uno",
 		Kind:    "foo",
@@ -77,7 +78,9 @@ func (cs *clientSuite) TestClientWaitChange(c *tc.C) {
 
 	chg, err := cs.cli.WaitChange("foo", nil)
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(cs.req.URL.String(), tc.Equals, "http://localhost/v1/changes/foo/wait")
+
 	c.Check(chg, tc.DeepEquals, &client.Change{
 		ID:      "uno",
 		Kind:    "foo",
@@ -103,6 +106,7 @@ func (cs *clientSuite) TestClientWaitChangeTimeout(c *tc.C) {
 	}
 	_, err := cs.cli.WaitChange("bar", opts)
 	c.Assert(cs.req.URL.String(), tc.Equals, "http://localhost/v1/changes/bar/wait?timeout=30s")
+
 	c.Assert(err, tc.ErrorMatches, `.*timed out waiting for change.*`)
 }
 
@@ -118,9 +122,11 @@ func (cs *clientSuite) TestClientChangeData(c *tc.C) {
 
 	chg, err := cs.cli.Change("uno")
 	c.Assert(err, tc.IsNil)
+
 	var n int
 	err = chg.Get("n", &n)
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(n, tc.Equals, 42)
 
 	err = chg.Get("missing", &n)
@@ -161,6 +167,7 @@ func (cs *clientSuite) TestClientChangeError(c *tc.C) {
 
 	chg, err := cs.cli.Change("uno")
 	c.Assert(err, tc.IsNil)
+
 	c.Check(chg, tc.DeepEquals, &client.Change{
 		ID:      "uno",
 		Kind:    "foo",
@@ -207,6 +214,7 @@ func (cs *clientSuite) TestClientChanges(c *tc.C) {
 	} {
 		chg, err := cs.cli.Changes(i)
 		c.Assert(err, tc.IsNil)
+
 		c.Check(chg, tc.DeepEquals, []*client.Change{{
 			ID:      "uno",
 			Kind:    "foo",
@@ -247,6 +255,7 @@ func (cs *clientSuite) TestClientChangesData(c *tc.C) {
 	var n int
 	err = chg.Get("n", &n)
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(n, tc.Equals, 42)
 
 	err = chg.Get("missing", &n)
@@ -266,6 +275,7 @@ func (cs *clientSuite) TestClientAbort(c *tc.C) {
 
 	chg, err := cs.cli.Abort("uno")
 	c.Assert(err, tc.IsNil)
+
 	c.Check(cs.req.Method, tc.Equals, "POST")
 	c.Check(chg, tc.DeepEquals, &client.Change{
 		ID:      "uno",

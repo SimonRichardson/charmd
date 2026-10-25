@@ -9,21 +9,25 @@ import (
 
 // StateManager participates in every overlord ensure pass.
 type StateManager interface {
+	// Ensure reconciles manager state and schedules pending work.
 	Ensure() error
 }
 
 // StateStarterUp is optionally implemented by managers that need startup work.
 type StateStarterUp interface {
+	// StartUp initializes manager resources before ensure passes begin.
 	StartUp() error
 }
 
 // StateWaiter is optionally implemented by managers with background work.
 type StateWaiter interface {
+	// Wait blocks until the manager’s current background work settles.
 	Wait()
 }
 
 // StateStopper is optionally implemented by managers with activities to stop.
 type StateStopper interface {
+	// Stop releases manager resources and waits for work to finish.
 	Stop()
 }
 

@@ -43,8 +43,11 @@ func (cs *clientSuite) TestNotice(c *tc.C) {
 	}}`
 	notice, err := cs.cli.Notice("123")
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(cs.req.Method, tc.Equals, "GET")
+
 	c.Assert(cs.req.URL.Path, tc.Equals, "/v1/notices/123")
+
 	uid := uint32(1000)
 	c.Assert(notice, tc.DeepEquals, &client.Notice{
 		ID:            "123",
@@ -91,9 +94,13 @@ func (cs *clientSuite) TestNotices(c *tc.C) {
 	}]}`
 	notices, err := cs.cli.Notices(&client.NoticesOptions{})
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(cs.req.Method, tc.Equals, "GET")
+
 	c.Assert(cs.req.URL.Path, tc.Equals, "/v1/notices")
+
 	c.Assert(cs.req.URL.Query(), tc.DeepEquals, url.Values{})
+
 	uid := uint32(1000)
 	c.Assert(notices, tc.DeepEquals, []*client.Notice{{
 		ID:            "1",
@@ -130,8 +137,11 @@ func (cs *clientSuite) TestNoticesFilters(c *tc.C) {
 		After:  time.Date(2023, 9, 5, 16, 43, 32, 123_456_789, time.UTC),
 	})
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(cs.req.Method, tc.Equals, "GET")
+
 	c.Assert(cs.req.URL.Path, tc.Equals, "/v1/notices")
+
 	c.Assert(cs.req.URL.Query(), tc.DeepEquals, url.Values{
 		"users":   {"all"},
 		"user-id": {"1000"},
@@ -139,6 +149,7 @@ func (cs *clientSuite) TestNoticesFilters(c *tc.C) {
 		"keys":    {"foo.com/bar", "example.com/x"},
 		"after":   {"2023-09-05T16:43:32.123456789Z"},
 	})
+
 	c.Assert(notices, tc.DeepEquals, []*client.Notice{})
 }
 
@@ -151,15 +162,19 @@ func (cs *clientSuite) TestNotify(c *tc.C) {
 		Data:        map[string]string{"k": "9"},
 	})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(noticeID, tc.Equals, "7")
 	c.Assert(cs.req.Method, tc.Equals, "POST")
+
 	c.Assert(cs.req.URL.Path, tc.Equals, "/v1/notices")
 
 	body, err := io.ReadAll(cs.req.Body)
 	c.Assert(err, tc.IsNil)
+
 	var m map[string]any
 	err = json.Unmarshal(body, &m)
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(m, tc.DeepEquals, map[string]any{
 		"action":       "add",
 		"type":         "custom",
@@ -176,15 +191,19 @@ func (cs *clientSuite) TestNotifyMinimal(c *tc.C) {
 		Key:  "a.b/c",
 	})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(noticeID, tc.Equals, "1")
 	c.Assert(cs.req.Method, tc.Equals, "POST")
+
 	c.Assert(cs.req.URL.Path, tc.Equals, "/v1/notices")
 
 	body, err := io.ReadAll(cs.req.Body)
 	c.Assert(err, tc.IsNil)
+
 	var m map[string]any
 	err = json.Unmarshal(body, &m)
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(m, tc.DeepEquals, map[string]any{
 		"action": "add",
 		"type":   "custom",
@@ -205,11 +224,15 @@ func (cs *clientSuite) TestWaitNotices(c *tc.C) {
 	}]}`
 	notices, err := cs.cli.WaitNotices(context.Background(), 10*time.Second, nil)
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(cs.req.Method, tc.Equals, "GET")
+
 	c.Assert(cs.req.URL.Path, tc.Equals, "/v1/notices")
+
 	c.Assert(cs.req.URL.Query(), tc.DeepEquals, url.Values{
 		"timeout": {"10s"},
 	})
+
 	uid := uint32(1000)
 	c.Assert(notices, tc.DeepEquals, []*client.Notice{{
 		ID:            "1",
@@ -227,6 +250,7 @@ func (cs *clientSuite) TestWaitNoticesTimeout(c *tc.C) {
 	cs.rsp = `{"type": "sync", "result": []}`
 	notices, err := cs.cli.WaitNotices(context.Background(), time.Second, nil)
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(notices, tc.HasLen, 0)
 }
 
@@ -247,6 +271,7 @@ func (cs *clientSuite) TestNoticeMarshalJSON(c *tc.C) {
 	}
 	data, err := json.Marshal(notice)
 	c.Assert(err, tc.IsNil)
+
 	expectedJSON := `{"id":"123","user-id":1000,"type":"custom","key":"a.b/c",` +
 		`"first-occurred":"2023-09-05T15:43:00Z","last-occurred":"2023-09-05T17:43:00Z",` +
 		`"last-repeated":"2023-09-05T16:43:00Z","occurrences":7,"last-data":{"k":"v"},` +
@@ -258,6 +283,7 @@ func (cs *clientSuite) TestNoticeMarshalJSON(c *tc.C) {
 	notice.LastData = nil
 	data, err = json.Marshal(notice)
 	c.Assert(err, tc.IsNil)
+
 	expectedJSON = `{"id":"123","user-id":1000,"type":"custom","key":"a.b/c",` +
 		`"first-occurred":"2023-09-05T15:43:00Z","last-occurred":"2023-09-05T17:43:00Z",` +
 		`"last-repeated":"2023-09-05T16:43:00Z","occurrences":7}`
@@ -281,6 +307,7 @@ func (cs *clientSuite) TestNoticeMarshalYAML(c *tc.C) {
 	}
 	data, err := yaml.Marshal(notice)
 	c.Assert(err, tc.IsNil)
+
 	c.Check(string(data), tc.Equals, `id: "123"
 user-id: 1000
 type: custom
@@ -300,6 +327,7 @@ expire-after: 168h0m0s
 	notice.LastData = nil
 	data, err = yaml.Marshal(notice)
 	c.Assert(err, tc.IsNil)
+
 	c.Check(string(data), tc.Equals, `id: "123"
 user-id: 1000
 type: custom

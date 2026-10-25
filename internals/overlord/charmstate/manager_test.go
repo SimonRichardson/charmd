@@ -16,7 +16,9 @@ import (
 	"github.com/canonical/tc"
 
 	"github.com/SimonRichardson/charmd/internals/charmapi"
+	"github.com/SimonRichardson/charmd/internals/overlord/runtimestate"
 	"github.com/SimonRichardson/charmd/internals/overlord/state"
+	charmRuntime "github.com/SimonRichardson/charmd/internals/runtime"
 )
 
 func Test(t *testing.T) { tc.InternalTestingT(t) }
@@ -55,14 +57,17 @@ func (suite *managerSuite) TestInstallCreatesDependentTasks(c *tc.C) {
 	defer st.Unlock()
 	c.Check(change.Kind(), tc.Equals, "install-charm")
 	tasks := change.Tasks()
-	c.Assert(tasks, tc.HasLen, 2)
+	c.Assert(tasks, tc.HasLen, 3)
+
 	c.Check(tasks[0].Kind(), tc.Equals, FetchCharmTask)
 	c.Check(tasks[1].Kind(), tc.Equals, InstallCharmTask)
 	c.Check(tasks[1].WaitTasks(), tc.DeepEquals, []*state.Task{tasks[0]})
+	c.Check(tasks[2].WaitTasks(), tc.DeepEquals, []*state.Task{tasks[1]})
 	c.Check(change.CheckTaskDependencies(), tc.IsNil)
-	for _, task := range tasks {
+	for _, task := range tasks[:2] {
 		var taskChecksum string
 		c.Assert(task.Get(charmSHA256Key, &taskChecksum), tc.IsNil)
+
 		c.Check(taskChecksum, tc.Equals, checksum)
 	}
 }
@@ -86,12 +91,14 @@ func (suite *managerSuite) TestInstallTasksExecuteInOrder(c *tc.C) {
 	r := state.NewTaskRunner(st)
 	defer r.Stop()
 	charmDir := c.MkDir()
+	runtimestate.NewManager(st, r, noopRuntime{})
 	api := newCharmAPI()
 	manager := NewManager(st, r, api, charmDir)
 	change, err := manager.Install(api.info.SHA256)
 	c.Assert(err, tc.IsNil)
 
 	c.Assert(r.Ensure(), tc.IsNil)
+
 	r.Wait()
 
 	st.Lock()
@@ -100,22 +107,30 @@ func (suite *managerSuite) TestInstallTasksExecuteInOrder(c *tc.C) {
 	c.Check(tasks[1].Status(), tc.Equals, state.DoStatus)
 	var info charmapi.DownloadInfo
 	c.Assert(tasks[0].Get(charmDownloadInfoKey, &info), tc.IsNil)
+
 	c.Check(info, tc.DeepEquals, api.info)
 	var archivePath string
 	c.Assert(tasks[0].Get(charmArchivePathKey, &archivePath), tc.IsNil)
+
 	st.Unlock()
 	c.Check(api.checksum, tc.Equals, api.info.SHA256)
 	c.Check(archivePath, tc.Equals, filepath.Join(charmDir, api.info.SHA256+".charm"))
 
 	c.Assert(r.Ensure(), tc.IsNil)
+
 	r.Wait()
 
+	c.Assert(r.Ensure(), tc.IsNil)
+
+	r.Wait()
 	st.Lock()
 	defer st.Unlock()
 	c.Check(change.Status().Ready(), tc.Equals, true)
+	c.Check(tasks[1].Status(), tc.Equals, state.DoneStatus)
 	c.Check(change.Err(), tc.IsNil)
 	var installPath string
 	c.Assert(tasks[1].Get(charmInstallPathKey, &installPath), tc.IsNil)
+
 	_, err = os.Stat(filepath.Join(installPath, "metadata.yaml"))
 	c.Check(err, tc.IsNil)
 }
@@ -131,6 +146,7 @@ func (suite *managerSuite) TestFetchCharmFailsWithoutDownloadOnResolutionError(c
 	c.Assert(err, tc.IsNil)
 
 	c.Assert(r.Ensure(), tc.IsNil)
+
 	r.Wait()
 
 	st.Lock()
@@ -154,6 +170,7 @@ func (suite *managerSuite) TestFetchCharmRejectsInvalidDownloadInfoWithoutSideEf
 	c.Assert(err, tc.IsNil)
 
 	c.Assert(r.Ensure(), tc.IsNil)
+
 	r.Wait()
 
 	st.Lock()
@@ -170,13 +187,16 @@ func (suite *managerSuite) TestUnpackArchiveRejectsPathTraversal(c *tc.C) {
 	archive := zip.NewWriter(&buffer)
 	file, err := archive.Create("../outside")
 	c.Assert(err, tc.IsNil)
+
 	_, err = file.Write([]byte("unexpected"))
 	c.Assert(err, tc.IsNil)
+
 	c.Assert(archive.Close(), tc.IsNil)
 
 	root := c.MkDir()
 	archivePath := filepath.Join(root, "charm")
 	c.Assert(os.WriteFile(archivePath, buffer.Bytes(), 0644), tc.IsNil)
+
 	err = unpackArchive(archivePath, filepath.Join(root, "installed"))
 	c.Check(err, tc.ErrorMatches, `charm archive contains invalid path "\.\./outside"`)
 	_, err = os.Stat(filepath.Join(root, "outside"))
@@ -233,4 +253,10 @@ func charmArchive() []byte {
 		panic(err)
 	}
 	return buffer.Bytes()
+}
+
+type noopRuntime struct{}
+
+func (noopRuntime) RunHook(context.Context, charmRuntime.Hook) (charmRuntime.Result, error) {
+	return charmRuntime.Result{}, nil
 }

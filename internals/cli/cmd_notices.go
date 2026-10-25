@@ -53,6 +53,7 @@ type cmdNotices struct {
 	Timeout time.Duration       `long:"timeout"`
 }
 
+// init registers the notices listing command.
 func init() {
 	AddCommand(&CmdInfo{
 		Name:        "notices",
@@ -75,6 +76,7 @@ func init() {
 	})
 }
 
+// Execute queries notices and writes the requested output format.
 func (cmd *cmdNotices) Execute(args []string) error {
 	if len(args) > 0 {
 		return ErrExtraArgs
@@ -133,6 +135,7 @@ type noticesResult struct {
 	Notices []*client.Notice `json:"notices" yaml:"notices"`
 }
 
+// writeText prints the notices table.
 func (cmd *cmdNotices) writeText(notices []*client.Notice) error {
 	writer := tabWriter()
 	defer writer.Flush()

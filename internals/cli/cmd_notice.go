@@ -41,6 +41,7 @@ type cmdNotice struct {
 	} `positional-args:"yes"`
 }
 
+// init registers the notice inspection and creation command.
 func init() {
 	AddCommand(&CmdInfo{
 		Name:        "notice",
@@ -56,6 +57,7 @@ func init() {
 	})
 }
 
+// Execute retrieves a notice by ID or records a new notice from its type and key.
 func (cmd *cmdNotice) Execute(args []string) error {
 	if len(args) > 0 {
 		return ErrExtraArgs
@@ -105,6 +107,7 @@ func (cmd *cmdNotice) Execute(args []string) error {
 	return cmd.formatNonText(notice)
 }
 
+// writeText prints one notice and its associated data.
 func (cmd *cmdNotice) writeText(notice *client.Notice) error {
 	b, err := yaml.Marshal(notice)
 	if err != nil {

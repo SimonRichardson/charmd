@@ -88,6 +88,7 @@ type Notice struct {
 	expireAfter time.Duration
 }
 
+// String returns the human-readable representation of this value.
 func (n *Notice) String() string {
 	userIDStr := "public"
 	if n.userID != nil {
@@ -104,6 +105,7 @@ func (n *Notice) UserID() (userID uint32, isSet bool) {
 	return flattenUserID(n.userID)
 }
 
+// flattenUserID converts an optional user ID into a comparable value and presence flag.
 func flattenUserID(userID *uint32) (uid uint32, isSet bool) {
 	if userID == nil {
 		return 0, false
@@ -133,6 +135,7 @@ type jsonNotice struct {
 	ExpireAfter   string            `json:"expire-after,omitempty"`
 }
 
+// MarshalJSON encodes this value in its persistent JSON representation.
 func (n *Notice) MarshalJSON() ([]byte, error) {
 	jn := jsonNotice{
 		ID:            n.id,
@@ -154,6 +157,7 @@ func (n *Notice) MarshalJSON() ([]byte, error) {
 	return json.Marshal(jn)
 }
 
+// UnmarshalJSON restores this value from its persistent JSON representation.
 func (n *Notice) UnmarshalJSON(data []byte) error {
 	var jn jsonNotice
 	err := json.Unmarshal(data, &jn)
@@ -201,6 +205,7 @@ const (
 	WarningNotice NoticeType = "warning"
 )
 
+// Valid reports whether the notice type is supported.
 func (t NoticeType) Valid() bool {
 	switch t {
 	case ChangeUpdateNotice, CustomNotice, WarningNotice:
@@ -310,6 +315,7 @@ func (s *State) Warnf(template string, args ...any) {
 	}
 }
 
+// validateNotice rejects unsupported notice types and invalid notice keys.
 func validateNotice(noticeType NoticeType, key string) error {
 	if !noticeType.Valid() {
 		return fmt.Errorf("internal error: attempted to add notice with invalid type %q", noticeType)
@@ -402,6 +408,7 @@ func (s *State) Notice(id string) *Notice {
 	return nil
 }
 
+// flattenNotices selects notices matching the filter for serialization or API use.
 func (s *State) flattenNotices(filter *NoticeFilter) []*Notice {
 	now := time.Now()
 	var notices []*Notice
@@ -414,6 +421,7 @@ func (s *State) flattenNotices(filter *NoticeFilter) []*Notice {
 	return notices
 }
 
+// unflattenNotices rebuilds the notice index from persisted notice records.
 func (s *State) unflattenNotices(flat []*Notice) {
 	now := time.Now()
 	s.notices = make(map[noticeKey]*Notice)

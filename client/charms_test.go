@@ -15,12 +15,14 @@ func (cs *clientSuite) TestInstallCharm(c *tc.C) {
 		SHA256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 	})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(changeID, tc.Equals, "1")
 	c.Check(cs.req.Method, tc.Equals, "POST")
 	c.Check(cs.req.URL.String(), tc.Equals, "http://localhost/v1/charms")
 
 	body, err := io.ReadAll(cs.req.Body)
 	c.Assert(err, tc.IsNil)
+
 	expected := `{"action":"install",` +
 		`"sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`
 	c.Check(string(body), tc.Equals, expected)

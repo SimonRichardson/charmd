@@ -48,12 +48,16 @@ func (s *clientSuite) TestAPIClientDiscoversAndDownloadsCharm(c *tc.C) {
 
 	client, err := New(config.Endpoint{URL: server.URL})
 	c.Assert(err, tc.IsNil)
+
 	info, err := client.GetCharmDownloadInfo(c.Context(), checksum)
 	c.Assert(err, tc.IsNil)
+
 	destination := filepath.Join(c.MkDir(), "charm")
 	c.Assert(client.DownloadCharm(c.Context(), info, destination), tc.IsNil)
+
 	data, err := os.ReadFile(destination)
 	c.Assert(err, tc.IsNil)
+
 	c.Check(data, tc.DeepEquals, archive)
 }
 
@@ -68,6 +72,7 @@ func (s *clientSuite) TestAPIClientRejectsMismatchedChecksum(c *tc.C) {
 	defer server.Close()
 	client, err := New(config.Endpoint{URL: server.URL})
 	c.Assert(err, tc.IsNil)
+
 	_, err = client.GetCharmDownloadInfo(c.Context(), checksum)
 	c.Check(err, tc.ErrorMatches, `discovered checksum "bad" does not match requested checksum .*`)
 }
@@ -78,20 +83,25 @@ func (s *clientSuite) TestFileClientReadsManifestAndMovesArchive(c *tc.C) {
 	digest := sha256.Sum256(archive)
 	checksum := hex.EncodeToString(digest[:])
 	c.Assert(os.WriteFile(filepath.Join(directory, checksum), archive, 0644), tc.IsNil)
+
 	manifest := "name: postgresql-k8s\nmetadata:\n  revision: 42\n"
 	c.Assert(os.WriteFile(filepath.Join(directory, checksum+".manifest"), []byte(manifest), 0644), tc.IsNil)
 
 	client, err := New(config.Endpoint{Path: directory})
 	c.Assert(err, tc.IsNil)
+
 	info, err := client.GetCharmDownloadInfo(c.Context(), checksum)
 	c.Assert(err, tc.IsNil)
+
 	c.Check(info.Name, tc.Equals, "postgresql-k8s")
 	c.Check(info.SHA256, tc.Equals, checksum)
 	c.Check(info.Metadata, tc.DeepEquals, map[string]any{"revision": 42})
 	destination := filepath.Join(c.MkDir(), "charm")
 	c.Assert(client.DownloadCharm(c.Context(), info, destination), tc.IsNil)
+
 	data, err := os.ReadFile(destination)
 	c.Assert(err, tc.IsNil)
+
 	c.Check(data, tc.DeepEquals, archive)
 	_, err = os.Stat(filepath.Join(directory, checksum))
 	c.Check(os.IsNotExist(err), tc.Equals, true)
@@ -102,8 +112,10 @@ func (s *clientSuite) TestFileClientRejectsMissingManifestWithoutMove(c *tc.C) {
 	checksum := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	archivePath := filepath.Join(directory, checksum)
 	c.Assert(os.WriteFile(archivePath, []byte("charm archive"), 0644), tc.IsNil)
+
 	client, err := New(config.Endpoint{Path: directory})
 	c.Assert(err, tc.IsNil)
+
 	_, err = client.GetCharmDownloadInfo(c.Context(), checksum)
 	c.Check(err, tc.ErrorMatches, `read charm manifest: .*`)
 	_, err = os.Stat(archivePath)

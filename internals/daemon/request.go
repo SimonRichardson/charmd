@@ -15,6 +15,7 @@ type UserState struct {
 	Admin bool
 }
 
+// requestUser retrieves the authenticated identity attached to a request.
 func requestUser(r *http.Request) *UserState {
 	user, _ := r.Context().Value(userKey{}).(*UserState)
 	return user
@@ -25,6 +26,7 @@ func WithUser(ctx context.Context, user *UserState) context.Context {
 	return context.WithValue(ctx, userKey{}, user)
 }
 
+// parseOptionalTime parses an RFC3339 timestamp or returns zero for an empty value.
 func parseOptionalTime(s string) (time.Time, error) {
 	if s == "" {
 		return time.Time{}, nil
@@ -32,6 +34,7 @@ func parseOptionalTime(s string) (time.Time, error) {
 	return time.Parse(time.RFC3339Nano, s)
 }
 
+// parseOptionalDuration parses a duration or returns zero for an empty value.
 func parseOptionalDuration(s string) (time.Duration, error) {
 	if s == "" {
 		return 0, nil
@@ -39,6 +42,7 @@ func parseOptionalDuration(s string) (time.Duration, error) {
 	return time.ParseDuration(s)
 }
 
+// multiCommaSeparatedList flattens repeated comma-separated query values and removes empty entries.
 func multiCommaSeparatedList(values []string) []string {
 	var result []string
 	for _, value := range values {

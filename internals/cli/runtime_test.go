@@ -25,6 +25,7 @@ func (s *runtimeSuite) TearDownTest(c *tc.C) {
 
 func (s *runtimeSuite) TestRuntimePathsUseCharmdDirectory(c *tc.C) {
 	c.Assert(os.Setenv(charmdEnv, "/var/lib/charmd/custom"), tc.IsNil)
+
 	c.Check(runtimePaths(), tc.DeepEquals, runtimePathSet{
 		dir:    "/var/lib/charmd/custom",
 		config: "/var/lib/charmd/custom/config.yaml",
@@ -35,6 +36,7 @@ func (s *runtimeSuite) TestRuntimePathsUseCharmdDirectory(c *tc.C) {
 
 func (s *runtimeSuite) TestRuntimePathsUseDefaultDirectory(c *tc.C) {
 	c.Assert(os.Setenv(charmdEnv, ""), tc.IsNil)
+
 	c.Check(runtimePaths(), tc.DeepEquals, runtimePathSet{
 		dir:    defaultCharmdDir,
 		config: defaultCharmdDir + "/config.yaml",

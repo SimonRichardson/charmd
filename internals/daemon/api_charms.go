@@ -5,6 +5,7 @@ import (
 	"net/http"
 )
 
+// v1PostCharms validates an install request and creates its asynchronous change.
 func v1PostCharms(command *Command, request *http.Request) Response {
 	var payload struct {
 		Action string `json:"action"`

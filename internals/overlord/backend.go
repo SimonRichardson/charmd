@@ -14,6 +14,7 @@ type fileBackend struct {
 	ensure func(time.Duration)
 }
 
+// Checkpoint atomically replaces the persistent checkpoint with the supplied state.
 func (b *fileBackend) Checkpoint(data []byte) error {
 	dir := filepath.Dir(b.path)
 	if err := os.MkdirAll(dir, 0700); err != nil {
@@ -53,6 +54,8 @@ func (b *fileBackend) Checkpoint(data []byte) error {
 	return nil
 }
 
+// EnsureBefore forwards an ensure deadline to the overlord scheduler.
 func (b *fileBackend) EnsureBefore(d time.Duration) { b.ensure(d) }
 
+// NeedsCheckpoint reports that this backend persists every state modification.
 func (b *fileBackend) NeedsCheckpoint() bool { return true }

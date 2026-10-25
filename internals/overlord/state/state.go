@@ -33,13 +33,17 @@ import (
 // A Backend is used by State to checkpoint on every unlock operation
 // and to mediate requests to ensure the state sooner or request restarts.
 type Backend interface {
+	// Checkpoint persists a serialized state snapshot.
 	Checkpoint(data []byte) error
+	// EnsureBefore requests an ensure pass no later than the given delay.
 	EnsureBefore(d time.Duration)
+	// NeedsCheckpoint reports whether modified state should be persisted.
 	NeedsCheckpoint() bool
 }
 
 type customData map[string]*json.RawMessage
 
+// get decodes the JSON value stored under a key or returns ErrNoState.
 func (data customData) get(key string, value any) error {
 	entryJSON := data[key]
 	if entryJSON == nil {
@@ -52,10 +56,12 @@ func (data customData) get(key string, value any) error {
 	return nil
 }
 
+// has reports whether a custom-data key is present.
 func (data customData) has(key string) bool {
 	return data[key] != nil
 }
 
+// set stores a value as JSON, removing the key when the value is nil.
 func (data customData) set(key string, value any) {
 	if value == nil {
 		delete(data, key)
@@ -140,12 +146,14 @@ func (s *State) Lock() {
 	atomic.AddInt32(&s.muC, 1)
 }
 
+// reading verifies that state access is protected by the state lock.
 func (s *State) reading() {
 	if atomic.LoadInt32(&s.muC) != 1 {
 		panic("internal error: accessing state without lock")
 	}
 }
 
+// writing marks state as modified and verifies that the state lock is held.
 func (s *State) writing() {
 	s.modified = true
 	if atomic.LoadInt32(&s.muC) != 1 {
@@ -153,6 +161,7 @@ func (s *State) writing() {
 	}
 }
 
+// unlock releases the state lock without checkpointing.
 func (s *State) unlock() {
 	atomic.AddInt32(&s.muC, -1)
 	s.mu.Unlock()
@@ -225,6 +234,7 @@ func (s *State) LegacyIdentities() json.RawMessage {
 	return s.legacyIdentities
 }
 
+// checkpointData serializes the state for the checkpoint backend.
 func (s *State) checkpointData() []byte {
 	data, err := json.Marshal(s)
 	if err != nil {
@@ -296,6 +306,7 @@ type NoStateError struct {
 	Key string
 }
 
+// Error returns the error message for this failure.
 func (e *NoStateError) Error() string {
 	var keyMsg string
 	if e.Key != "" {
@@ -442,6 +453,7 @@ func (s *State) TaskCount() int {
 	return len(s.tasks)
 }
 
+// tasksIn resolves stored task IDs to their task values.
 func (s *State) tasksIn(tids []string) []*Task {
 	res := make([]*Task, len(tids))
 	for i, tid := range tids {
@@ -573,6 +585,7 @@ type pruneStats struct {
 	newestNotice time.Time
 }
 
+// IncludeChange counts a pruned change and expands the affected time range.
 func (s *pruneStats) IncludeChange(chg *Change) {
 	s.numChanges++
 	if chg == nil {
@@ -590,6 +603,7 @@ func (s *pruneStats) IncludeChange(chg *Change) {
 	}
 }
 
+// IncludeNotice counts a pruned notice and expands the affected time range.
 func (s *pruneStats) IncludeNotice(n *Notice) {
 	s.numNotices++
 	if n == nil {
@@ -608,6 +622,7 @@ func (s *pruneStats) IncludeNotice(n *Notice) {
 	}
 }
 
+// Log reports the number and time range of pruned changes and notices.
 func (s *pruneStats) Log() {
 	if s.numChanges == 0 && s.numNotices == 0 {
 		logger.Debugf("pruned 0 changes and 0 notices")
@@ -623,6 +638,7 @@ func (s *pruneStats) Log() {
 	}
 }
 
+// pruneMaxNotices removes the oldest notices until the configured limit is satisfied.
 func (s *State) pruneMaxNotices(maxNotices int, stats *pruneStats) {
 	notices := make([]*Notice, 0, len(s.notices))
 	for _, n := range s.notices {
@@ -665,11 +681,13 @@ func (s *State) AddTaskStatusChangedHandler(f func(t *Task, old, new Status)) (i
 	return id
 }
 
+// RemoveTaskStatusChangedHandler unregisters a task status callback. The caller holds the state lock.
 func (s *State) RemoveTaskStatusChangedHandler(id int) {
 	s.reading()
 	delete(s.taskHandlers, id)
 }
 
+// notifyTaskStatusChangedHandlers calls task observers synchronously while the state lock is held.
 func (s *State) notifyTaskStatusChangedHandlers(t *Task, old, new Status) {
 	s.reading()
 	for _, f := range s.taskHandlers {
@@ -693,11 +711,13 @@ func (s *State) AddChangeStatusChangedHandler(f func(chg *Change, old, new Statu
 	return id
 }
 
+// RemoveChangeStatusChangedHandler unregisters a change status callback. The caller holds the state lock.
 func (s *State) RemoveChangeStatusChangedHandler(id int) {
 	s.reading()
 	delete(s.changeHandlers, id)
 }
 
+// notifyChangeStatusChangedHandlers calls change observers synchronously while the state lock is held.
 func (s *State) notifyChangeStatusChangedHandlers(chg *Change, old, new Status) {
 	s.reading()
 	for _, f := range s.changeHandlers {

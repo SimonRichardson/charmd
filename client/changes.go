@@ -155,6 +155,7 @@ func (client *Client) Abort(id string) (*Change, error) {
 // ChangeSelector represents a selection of changes to query for.
 type ChangeSelector uint8
 
+// String returns the human-readable representation of this value.
 func (c ChangeSelector) String() string {
 	switch c {
 	case ChangesInProgress:

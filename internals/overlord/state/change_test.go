@@ -44,6 +44,7 @@ func (cs *changeSuite) TestNewChange(c *tc.C) {
 	// Check notice is recorded on change spawn
 	notices := st.Notices(nil)
 	c.Assert(notices, tc.HasLen, 1)
+
 	n := noticeToMap(c, notices[0])
 	c.Check(n["type"], tc.Equals, "change-update")
 	c.Check(n["key"], tc.Equals, chg.ID())
@@ -60,6 +61,7 @@ func (cs *changeSuite) TestNewChangeWithExtraNoticeData(c *tc.C) {
 
 	notices := st.Notices(nil)
 	c.Assert(notices, tc.HasLen, 1)
+
 	n := noticeToMap(c, notices[0])
 	c.Check(n["last-data"], tc.DeepEquals, map[string]any{"kind": "perform-check", "check-name": "c"})
 }
@@ -104,6 +106,7 @@ func (cs *changeSuite) TestGetSet(c *tc.C) {
 	var v int
 	err := chg.Get("a", &v)
 	c.Assert(err, tc.IsNil)
+
 	c.Check(v, tc.Equals, 1)
 }
 
@@ -179,6 +182,7 @@ func (cs *changeSuite) TestStatusExplicitlyDefined(c *tc.C) {
 
 	t.SetStatus(state.DoingStatus)
 	c.Assert(chg.Status(), tc.Equals, state.DoingStatus)
+
 	chg.SetStatus(state.ErrorStatus)
 	c.Assert(chg.Status(), tc.Equals, state.ErrorStatus)
 }
@@ -378,10 +382,12 @@ func (cs *changeSuite) TestIsClean(c *tc.C) {
 
 	t1.SetStatus(state.DoneStatus)
 	c.Assert(t1.SetClean, tc.PanicMatches, ".*while change not ready")
+
 	t2.SetStatus(state.DoneStatus)
 
 	t1.SetClean()
 	c.Assert(chg.IsClean(), tc.Equals, false)
+
 	t2.SetClean()
 	c.Assert(chg.IsClean(), tc.Equals, true)
 }
@@ -460,6 +466,7 @@ func (cs *changeSuite) TestMethodEntrance(c *tc.C) {
 	for i, f := range reads {
 		c.Logf("Testing read function #%d", i)
 		c.Assert(f, tc.PanicMatches, "internal error: accessing state without lock")
+
 		c.Assert(st.Modified(), tc.Equals, false)
 	}
 
@@ -470,6 +477,7 @@ func (cs *changeSuite) TestMethodEntrance(c *tc.C) {
 
 		c.Logf("Testing write function #%d", i)
 		c.Assert(f, tc.PanicMatches, "internal error: accessing state without lock")
+
 		c.Assert(st.Modified(), tc.Equals, true)
 	}
 }
@@ -504,10 +512,13 @@ func (cs *changeSuite) TestAbort(c *tc.C) {
 		switch s {
 		case state.DoStatus:
 			c.Assert(t.Status(), tc.Equals, state.HoldStatus)
+
 		case state.DoneStatus, state.WaitStatus:
 			c.Assert(t.Status(), tc.Equals, state.UndoStatus)
+
 		case state.DoingStatus:
 			c.Assert(t.Status(), tc.Equals, state.AbortStatus)
+
 		default:
 			c.Assert(t.Status(), tc.Equals, s)
 		}
@@ -749,6 +760,7 @@ func (ts *taskRunnerSuite) TestAbortLanes(c *tc.C) {
 				for lane := range lanes {
 					n, err := strconv.Atoi(lane)
 					c.Assert(err, tc.IsNil)
+
 					task.JoinLane(n)
 				}
 			}
@@ -926,6 +938,7 @@ func (ts *taskRunnerSuite) TestAbortUnreadyLanes(c *tc.C) {
 		for wp := range strings.FieldsSeq(test.order) {
 			pair := strings.Split(wp, "->")
 			c.Assert(pair, tc.HasLen, 2)
+
 			// task 2 waits for task 1 is denoted as:
 			// task1->task2
 			tasks[pair[1]].WaitFor(tasks[pair[0]])
@@ -943,6 +956,7 @@ func (ts *taskRunnerSuite) TestAbortUnreadyLanes(c *tc.C) {
 			parts := strings.Split(item, ":")
 			if parts[0] == "*" {
 				c.Assert(i, tc.Equals, len(items)-1, tc.Commentf("*: can only be used as the last entry"))
+
 				for _, name := range names {
 					if !seen[name] {
 						parts[0] = name
@@ -963,6 +977,7 @@ func (ts *taskRunnerSuite) TestAbortUnreadyLanes(c *tc.C) {
 				for lane := range lanes {
 					n, err := strconv.Atoi(lane)
 					c.Assert(err, tc.IsNil)
+
 					task.JoinLane(n)
 				}
 			}
@@ -982,6 +997,7 @@ func (ts *taskRunnerSuite) TestAbortUnreadyLanes(c *tc.C) {
 			parts := strings.Split(item, ":")
 			if parts[0] == "*" {
 				c.Assert(i, tc.Equals, len(expected)-1, tc.Commentf("*: can only be used as the last entry"))
+
 				var expanded []string
 				for _, name := range names {
 					if !seen[name] {
@@ -1126,6 +1142,7 @@ func (ts *taskRunnerSuite) TestCheckTaskDependencies(c *tc.C) {
 		for wp := range strings.FieldsSeq(test.order) {
 			pair := strings.Split(wp, "->")
 			c.Assert(pair, tc.HasLen, 2)
+
 			// task 2 waits for task 1 is denoted as:
 			// task1->task2
 			tasks[pair[1]].WaitFor(tasks[pair[0]])
@@ -1135,7 +1152,9 @@ func (ts *taskRunnerSuite) TestCheckTaskDependencies(c *tc.C) {
 
 		if test.err != "" {
 			c.Assert(err, tc.ErrorMatches, test.err)
+
 			c.Assert(errors.Is(err, &state.TaskDependencyCycleError{}), tc.Equals, true)
+
 			errTasksDepCycle := err.(*state.TaskDependencyCycleError)
 			c.Assert(errTasksDepCycle.IDs, tc.DeepEquals, test.errIDs)
 		} else {
@@ -1495,16 +1514,19 @@ func (cs *changeSuite) TestChangeStatusRecordsChangeUpdateNotice(c *tc.C) {
 	// Verify that change status is alternating Doing -> Do -> Doing
 	t1.SetStatus(state.DoingStatus)
 	c.Assert(chg.Status(), tc.Equals, state.DoingStatus)
+
 	t1.SetStatus(state.DoneStatus)
 	c.Assert(chg.Status(), tc.Equals, state.DoStatus)
 
 	t2.SetStatus(state.DoingStatus)
 	c.Assert(chg.Status(), tc.Equals, state.DoingStatus)
+
 	t2.SetStatus(state.DoneStatus)
 	c.Assert(chg.Status(), tc.Equals, state.DoStatus)
 
 	t3.SetStatus(state.DoingStatus)
 	c.Assert(chg.Status(), tc.Equals, state.DoingStatus)
+
 	t3.SetStatus(state.DoneStatus)
 	c.Assert(chg.Status(), tc.Equals, state.DoneStatus)
 
@@ -1512,6 +1534,7 @@ func (cs *changeSuite) TestChangeStatusRecordsChangeUpdateNotice(c *tc.C) {
 	// the alternating status
 	notices := st.Notices(nil)
 	c.Assert(notices, tc.HasLen, 1)
+
 	n := noticeToMap(c, notices[0])
 	c.Check(n["type"], tc.Equals, "change-update")
 	c.Check(n["key"], tc.Equals, chg.ID())
@@ -1540,11 +1563,13 @@ func (cs *changeSuite) TestChangeStatusUndoRecordsChangeUpdateNotice(c *tc.C) {
 	// Verify that change status is alternating Doing -> Do -> Doing
 	t1.SetStatus(state.DoingStatus)
 	c.Assert(chg.Status(), tc.Equals, state.DoingStatus)
+
 	t1.SetStatus(state.DoneStatus)
 	c.Assert(chg.Status(), tc.Equals, state.DoStatus)
 
 	t2.SetStatus(state.DoingStatus)
 	c.Assert(chg.Status(), tc.Equals, state.DoingStatus)
+
 	t2.SetStatus(state.DoneStatus)
 	c.Assert(chg.Status(), tc.Equals, state.DoStatus)
 
@@ -1556,11 +1581,13 @@ func (cs *changeSuite) TestChangeStatusUndoRecordsChangeUpdateNotice(c *tc.C) {
 	// Verify that change status is alternating Undo -> Undoing -> Undo
 	t2.SetStatus(state.UndoingStatus)
 	c.Assert(chg.Status(), tc.Equals, state.UndoingStatus)
+
 	t2.SetStatus(state.UndoneStatus)
 	c.Assert(chg.Status(), tc.Equals, state.UndoStatus)
 
 	t1.SetStatus(state.UndoingStatus)
 	c.Assert(chg.Status(), tc.Equals, state.UndoingStatus)
+
 	t1.SetStatus(state.UndoneStatus)
 	c.Assert(chg.Status(), tc.Equals, state.ErrorStatus)
 
@@ -1568,6 +1595,7 @@ func (cs *changeSuite) TestChangeStatusUndoRecordsChangeUpdateNotice(c *tc.C) {
 	// the alternating status
 	notices := st.Notices(nil)
 	c.Assert(notices, tc.HasLen, 1)
+
 	n := noticeToMap(c, notices[0])
 	c.Check(n["type"], tc.Equals, "change-update")
 	c.Check(n["key"], tc.Equals, chg.ID())
@@ -1590,6 +1618,7 @@ func (cs *changeSuite) TestChangeLastRecordedNoticeStatusPersisted(c *tc.C) {
 	var chgData map[string]any
 	err = json.Unmarshal(data, &chgData)
 	c.Assert(err, tc.IsNil)
+
 	obtainedStatus := state.Status(chgData["last-recorded-notice-status"].(float64))
 	c.Check(obtainedStatus, tc.Equals, state.DoingStatus)
 }

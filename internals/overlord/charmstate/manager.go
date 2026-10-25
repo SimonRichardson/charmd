@@ -15,6 +15,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/SimonRichardson/charmd/internals/charmapi"
+	"github.com/SimonRichardson/charmd/internals/overlord/runtimestate"
 	"github.com/SimonRichardson/charmd/internals/overlord/state"
 )
 
@@ -87,6 +88,7 @@ func (m *Manager) Install(checksum string) (*state.Change, error) {
 
 	change.AddTask(fetch)
 	change.AddTask(install)
+	change.AddTask(runtimestate.InstallTask(m.state, install))
 
 	m.state.EnsureBefore(0)
 
@@ -138,6 +140,7 @@ func (m *Manager) fetchCharm(task *state.Task, tomb *tomb.Tomb) error {
 	return nil
 }
 
+// validateChecksum rejects invalid SHA-addressed charm selectors.
 func validateChecksum(checksum string) error {
 	if len(checksum) != 64 {
 		return fmt.Errorf("invalid charm download checksum %q", checksum)
@@ -148,6 +151,7 @@ func validateChecksum(checksum string) error {
 	return nil
 }
 
+// verifyArchive hashes the cached archive and checks it against the requested digest.
 func verifyArchive(archivePath, checksum string) error {
 	archive, err := os.Open(archivePath)
 	if err != nil {
@@ -185,7 +189,13 @@ func (m *Manager) installCharm(task *state.Task, _ *tomb.Tomb) error {
 	m.state.Unlock()
 
 	installPath := filepath.Join(m.charmDir, info.SHA256)
-	if _, err := os.Stat(installPath); err == nil {
+	if info, err := os.Stat(installPath); err == nil {
+		if !info.IsDir() {
+			return fmt.Errorf("charm installation is not a directory")
+		}
+		m.state.Lock()
+		task.Set(charmInstallPathKey, installPath)
+		m.state.Unlock()
 		return nil
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("inspect charm installation: %w", err)
@@ -200,6 +210,7 @@ func (m *Manager) installCharm(task *state.Task, _ *tomb.Tomb) error {
 	return nil
 }
 
+// unpackArchive extracts into a temporary directory and publishes it atomically after validating entry paths.
 func unpackArchive(archivePath, destination string) error {
 	archive, err := zip.OpenReader(archivePath)
 	if err != nil {

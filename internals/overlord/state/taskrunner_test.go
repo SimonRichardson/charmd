@@ -247,6 +247,7 @@ func (ts *taskRunnerSuite) TestSequenceTests(c *tc.C) {
 				for lane := range lanes {
 					n, err := strconv.Atoi(lane)
 					c.Assert(err, tc.IsNil)
+
 					tasks[parts[0]].JoinLane(n)
 				}
 			}
@@ -435,19 +436,24 @@ func (ts *taskRunnerSuite) TestAbortAcrossLanesDescendantTask(c *tc.C) {
 		"t11:do", "t12:do",
 		"t21:do", "t22:do",
 	})
+
 	c.Assert(sequence[4:8], tc.DeepEquals, []string{
 		"t13:do", "t14:do", "t23:do", "t24:do",
 	})
+
 	c.Assert(sequence[8:10], testutil.DeepUnsortedMatches, []string{
 		"t25:do",
 		"t15:error",
 	})
+
 	c.Assert(sequence[10:11], testutil.DeepUnsortedMatches, []string{
 		"t25:undo",
 	})
+
 	c.Assert(sequence[11:15], tc.DeepEquals, []string{
 		"t24:undo", "t23:undo", "t14:undo", "t13:undo",
 	})
+
 	c.Assert(sequence[15:19], testutil.DeepUnsortedMatches, []string{
 		"t21:undo", "t22:undo",
 		"t12:undo", "t11:undo",
@@ -537,12 +543,15 @@ func (ts *taskRunnerSuite) TestAbortAcrossLanesStriclyOrderedTasks(c *tc.C) {
 		"t11:do", "t12:do",
 		"t21:do", "t22:do",
 	})
+
 	c.Assert(sequence[4:8], tc.DeepEquals, []string{
 		"t13:do", "t14:do", "t23:do", "t24:error",
 	})
+
 	c.Assert(sequence[8:11], tc.DeepEquals, []string{
 		"t23:undo", "t14:undo", "t13:undo",
 	})
+
 	c.Assert(sequence[11:], testutil.DeepUnsortedMatches, []string{
 		"t21:undo", "t22:undo",
 		"t12:undo", "t11:undo",
@@ -647,6 +656,7 @@ func (ts *taskRunnerSuite) TestUndoSingleLane(c *tc.C) {
 	var done bool
 	for !done {
 		c.Assert(r.Ensure(), tc.Equals, nil)
+
 		st.Lock()
 		done = chg.IsReady() && chg.IsClean()
 		st.Unlock()
@@ -661,6 +671,7 @@ func (ts *taskRunnerSuite) TestUndoSingleLane(c *tc.C) {
 		switch t.Kind() {
 		case "fail":
 			c.Assert(t.Status(), tc.Equals, state.ErrorStatus)
+
 		case "noop", "noop-slow":
 			if t.Status() != state.UndoneStatus && t.Status() != state.HoldStatus {
 				for _, tsk := range st.Tasks() {
@@ -1115,6 +1126,7 @@ func (ts *taskRunnerSuite) TestOptionalHandler(c *tc.C) {
 	st.Lock()
 	defer st.Unlock()
 	c.Assert(t1.Status(), tc.Equals, state.ErrorStatus)
+
 	c.Assert(strings.Join(t1.Log(), ""), tc.Matches, `.*optional handler error for "an unknown task"`)
 }
 
@@ -1247,18 +1259,25 @@ func (ts *taskRunnerSuite) TestCleanup(c *tc.C) {
 
 	// First time it errors, then it works, then it's ignored.
 	c.Assert(chgIsClean(), tc.Equals, false)
+
 	c.Assert(called, tc.Equals, 0)
+
 	r.Ensure()
 	r.Wait()
 	c.Assert(chgIsClean(), tc.Equals, false)
+
 	c.Assert(called, tc.Equals, 1)
+
 	r.Ensure()
 	r.Wait()
 	c.Assert(chgIsClean(), tc.Equals, true)
+
 	c.Assert(called, tc.Equals, 2)
+
 	r.Ensure()
 	r.Wait()
 	c.Assert(chgIsClean(), tc.Equals, true)
+
 	c.Assert(called, tc.Equals, 2)
 }
 

@@ -35,6 +35,7 @@ func (cs *clientSuite) SetUpTest(c *tc.C) {
 	var err error
 	cs.cli, err = client.New(nil)
 	c.Assert(err, tc.IsNil)
+
 	cs.cli.SetDoer(cs)
 	cs.err = nil
 	cs.req = nil

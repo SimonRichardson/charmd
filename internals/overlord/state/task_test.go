@@ -88,6 +88,7 @@ func (ts *taskSuite) TestGetSet(c *tc.C) {
 	var v int
 	err := t.Get("a", &v)
 	c.Assert(err, tc.IsNil)
+
 	c.Check(v, tc.Equals, 1)
 }
 
@@ -118,6 +119,7 @@ func (ts *taskSuite) TestClear(c *tc.C) {
 	var v int
 	err := t.Get("a", &v)
 	c.Assert(err, tc.IsNil)
+
 	c.Check(v, tc.Equals, 1)
 
 	t.Clear("a")
@@ -326,6 +328,7 @@ func (ts *taskSuite) TestTaskMarshalsDoingUndoingTime(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 
 	c.Assert(string(d), testutil.Contains, `"doing-time":123456`)
+
 	c.Assert(string(d), testutil.Contains, `"undoing-time":654321`)
 }
 
@@ -339,8 +342,11 @@ func (ts *taskSuite) TestTaskWaitFor(c *tc.C) {
 	t2.WaitFor(t1)
 
 	c.Assert(t2.WaitTasks(), tc.DeepEquals, []*state.Task{t1})
+
 	c.Assert(t1.HaltTasks(), tc.DeepEquals, []*state.Task{t2})
+
 	c.Assert(t1.NumHaltTasks(), tc.Equals, 1)
+
 	c.Assert(t2.NumHaltTasks(), tc.Equals, 0)
 }
 
@@ -409,6 +415,7 @@ func (cs *taskSuite) TestLogf(c *tc.C) {
 
 	log := t.Log()
 	c.Assert(log, tc.HasLen, 10)
+
 	for i := range 10 {
 		c.Assert(log[i], tc.Matches, fmt.Sprintf("....-..-..T.* INFO Message #%d", i+10))
 	}
@@ -482,6 +489,7 @@ func (cs *taskSuite) TestMethodEntrance(c *tc.C) {
 	for i, f := range reads {
 		c.Logf("Testing read function #%d", i)
 		c.Assert(f, tc.PanicMatches, "internal error: accessing state without lock")
+
 		c.Assert(st.Modified(), tc.Equals, false)
 	}
 
@@ -492,6 +500,7 @@ func (cs *taskSuite) TestMethodEntrance(c *tc.C) {
 
 		c.Logf("Testing write function #%d", i)
 		c.Assert(f, tc.PanicMatches, "internal error: accessing state without lock")
+
 		c.Assert(st.Modified(), tc.Equals, true)
 	}
 }
@@ -521,7 +530,9 @@ func (ts *taskSuite) TestTaskWaitAll(c *tc.C) {
 	t3.WaitAll(state.NewTaskSet(t1, t2))
 
 	c.Assert(t3.WaitTasks(), tc.HasLen, 2)
+
 	c.Assert(t1.HaltTasks(), tc.DeepEquals, []*state.Task{t3})
+
 	c.Assert(t2.HaltTasks(), tc.DeepEquals, []*state.Task{t3})
 }
 
@@ -537,7 +548,9 @@ func (ts *taskSuite) TestTaskSetWaitFor(c *tc.C) {
 	ts23.WaitFor(t1)
 
 	c.Assert(t2.WaitTasks(), tc.DeepEquals, []*state.Task{t1})
+
 	c.Assert(t3.WaitTasks(), tc.DeepEquals, []*state.Task{t1})
+
 	c.Assert(t1.NumHaltTasks(), tc.Equals, 2)
 }
 
@@ -555,8 +568,11 @@ func (ts *taskSuite) TestTaskSetWaitAll(c *tc.C) {
 	ts34.WaitAll(ts12)
 
 	c.Assert(t3.WaitTasks(), tc.DeepEquals, []*state.Task{t1, t2})
+
 	c.Assert(t4.WaitTasks(), tc.DeepEquals, []*state.Task{t1, t2})
+
 	c.Assert(t1.NumHaltTasks(), tc.Equals, 2)
+
 	c.Assert(t2.NumHaltTasks(), tc.Equals, 2)
 }
 
@@ -590,8 +606,10 @@ func (ts *taskSuite) TestLanes(c *tc.C) {
 	t := st.NewTask("download", "1...")
 
 	c.Assert(t.Lanes(), tc.DeepEquals, []int{0})
+
 	t.JoinLane(1)
 	c.Assert(t.Lanes(), tc.DeepEquals, []int{1})
+
 	t.JoinLane(2)
 	c.Assert(t.Lanes(), tc.DeepEquals, []int{1, 2})
 }
@@ -618,35 +636,44 @@ func (cs *taskSuite) TestTaskSetEdge(c *tc.C) {
 	// no edge marked yet
 	t, err := ts.Edge(edge1)
 	c.Assert(t, tc.IsNil)
+
 	c.Assert(err, tc.ErrorMatches, `internal error: missing "on-edge" edge in task set`)
+
 	t, err = ts.Edge(edge2)
 	c.Assert(t, tc.IsNil)
+
 	c.Assert(err, tc.ErrorMatches, `internal error: missing "eddie" edge in task set`)
 
 	// one edge
 	ts.MarkEdge(t1, edge1)
 	t, err = ts.Edge(edge1)
 	c.Assert(t, tc.Equals, t1)
+
 	c.Assert(err, tc.IsNil)
 
 	// two edges
 	ts.MarkEdge(t2, edge2)
 	t, err = ts.Edge(edge1)
 	c.Assert(t, tc.Equals, t1)
+
 	c.Assert(err, tc.IsNil)
+
 	t, err = ts.Edge(edge2)
 	c.Assert(t, tc.Equals, t2)
+
 	c.Assert(err, tc.IsNil)
 
 	// edges can be reassigned
 	ts.MarkEdge(t3, edge1)
 	t, err = ts.Edge(edge1)
 	c.Assert(t, tc.Equals, t3)
+
 	c.Assert(err, tc.IsNil)
 
 	// it is possible to check if edge exists without failing
 	t = ts.MaybeEdge(edge1)
 	c.Assert(t, tc.Equals, t3)
+
 	t = ts.MaybeEdge(edge3)
 	c.Assert(t, tc.IsNil)
 }
@@ -666,20 +693,25 @@ func (cs *taskSuite) TestTaskAddAllWithEdges(c *tc.C) {
 	ts.MarkEdge(t1, edge1)
 	t, err := ts.Edge(edge1)
 	c.Assert(t, tc.Equals, t1)
+
 	c.Assert(err, tc.IsNil)
 
 	ts2 := state.NewTaskSet()
 	err = ts2.AddAllWithEdges(ts)
 	c.Assert(err, tc.IsNil)
+
 	t, err = ts2.Edge(edge1)
 	c.Assert(t, tc.Equals, t1)
+
 	c.Assert(err, tc.IsNil)
 
 	// doing it again is no harm
 	err = ts2.AddAllWithEdges(ts)
 	c.Assert(err, tc.IsNil)
+
 	t, err = ts2.Edge(edge1)
 	c.Assert(t, tc.Equals, t1)
+
 	c.Assert(err, tc.IsNil)
 
 	// but conflicting edges are an error

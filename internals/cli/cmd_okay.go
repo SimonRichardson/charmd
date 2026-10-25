@@ -26,6 +26,7 @@ type cmdOkay struct {
 	socketPath string
 }
 
+// init registers the okay command and its help text.
 func init() {
 	AddCommand(&CmdInfo{
 		Name:    "okay",
@@ -36,6 +37,7 @@ func init() {
 	})
 }
 
+// Execute acknowledges notices according to the command options.
 func (cmd *cmdOkay) Execute(args []string) error {
 	if len(args) > 0 {
 		return ErrExtraArgs

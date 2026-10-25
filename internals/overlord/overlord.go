@@ -12,7 +12,9 @@ import (
 
 	"github.com/SimonRichardson/charmd/internals/charmapi"
 	"github.com/SimonRichardson/charmd/internals/overlord/charmstate"
+	"github.com/SimonRichardson/charmd/internals/overlord/runtimestate"
 	"github.com/SimonRichardson/charmd/internals/overlord/state"
+	"github.com/SimonRichardson/charmd/internals/runtime/legacy"
 )
 
 // Options supplies the static dependencies used to construct an Overlord.
@@ -29,6 +31,7 @@ type Overlord struct {
 	runner      *state.TaskRunner
 	engine      *StateEngine
 	charmMgr    *charmstate.Manager
+	runtimeMgr  *runtimestate.Manager
 	wake        chan struct{}
 	stop        chan struct{}
 	done        chan struct{}
@@ -75,6 +78,12 @@ func New(opts *Options) (*Overlord, error) {
 	charmDir := filepath.Join(filepath.Dir(opts.StatePath), "charms")
 	o.charmMgr = charmstate.NewManager(o.state, o.runner, opts.CharmAPI, charmDir)
 	o.engine.AddManager(o.charmMgr)
+	executable, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("find hook tool executable: %w", err)
+	}
+	o.runtimeMgr = runtimestate.NewManager(o.state, o.runner, &legacy.Runtime{Executable: executable})
+	o.engine.AddManager(o.runtimeMgr)
 	return o, nil
 }
 
@@ -86,6 +95,9 @@ func (o *Overlord) TaskRunner() *state.TaskRunner { return o.runner }
 
 // CharmManager returns the manager responsible for charm changes.
 func (o *Overlord) CharmManager() *charmstate.Manager { return o.charmMgr }
+
+// RuntimeManager returns the manager responsible for charm hook execution.
+func (o *Overlord) RuntimeManager() *runtimestate.Manager { return o.runtimeMgr }
 
 // AddManager registers a manager before StartUp. It panics after startup begins.
 func (o *Overlord) AddManager(m StateManager) {
@@ -139,6 +151,7 @@ func (o *Overlord) StartUp() error {
 	return nil
 }
 
+// loop coordinates scheduled ensure passes until shutdown is requested.
 func (o *Overlord) loop() {
 	defer close(o.done)
 	const ensureInterval = 5 * time.Minute

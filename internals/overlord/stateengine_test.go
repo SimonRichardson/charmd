@@ -80,11 +80,13 @@ func (ses *stateEngineSuite) TestStartUp(c *tc.C) {
 
 	err := se.StartUp()
 	c.Assert(err, tc.IsNil)
+
 	c.Check(calls, tc.DeepEquals, []string{"startup:mgr1", "startup:mgr2"})
 
 	// noop
 	err = se.StartUp()
 	c.Assert(err, tc.IsNil)
+
 	c.Check(calls, tc.HasLen, 2)
 }
 
@@ -123,14 +125,17 @@ func (ses *stateEngineSuite) TestEnsure(c *tc.C) {
 	err := se.Ensure()
 	c.Check(err, tc.ErrorMatches, "state engine skipped startup")
 	c.Assert(se.StartUp(), tc.IsNil)
+
 	calls = []string{}
 
 	err = se.Ensure()
 	c.Assert(err, tc.IsNil)
+
 	c.Check(calls, tc.DeepEquals, []string{"ensure:mgr1", "ensure:mgr2"})
 
 	err = se.Ensure()
 	c.Assert(err, tc.IsNil)
+
 	c.Check(calls, tc.DeepEquals, []string{"ensure:mgr1", "ensure:mgr2", "ensure:mgr1", "ensure:mgr2"})
 }
 
@@ -150,6 +155,7 @@ func (ses *stateEngineSuite) TestEnsureError(c *tc.C) {
 	se.AddManager(mgr2)
 
 	c.Assert(se.StartUp(), tc.IsNil)
+
 	calls = []string{}
 
 	err := se.Ensure()
@@ -170,6 +176,7 @@ func (ses *stateEngineSuite) TestStop(c *tc.C) {
 	se.AddManager(mgr2)
 
 	c.Assert(se.StartUp(), tc.IsNil)
+
 	calls = []string{}
 
 	se.Stop()

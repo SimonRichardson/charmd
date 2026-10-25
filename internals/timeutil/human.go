@@ -32,6 +32,7 @@ func Human(then time.Time) string {
 	return humanTimeSince(then.Local(), time.Now().Local(), 60)
 }
 
+// delta counts calendar days between two times, accounting for local day boundaries.
 func delta(then, now time.Time) int {
 	if then.After(now) {
 		return -delta(now, then)
@@ -49,6 +50,7 @@ func delta(then, now time.Time) int {
 	return n
 }
 
+// humanTimeSince formats a relative date within the cutoff and an absolute date otherwise.
 func humanTimeSince(then, now time.Time, cutoffDays int) string {
 	d := delta(then, now)
 	switch {

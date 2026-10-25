@@ -30,6 +30,7 @@ func (s *CharmdSuite) TestOkay(c *tc.C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"okay"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	c.Check(s.Stdout(), tc.Equals, "")
 	c.Check(s.Stderr(), tc.Equals, "")
@@ -44,6 +45,7 @@ func (s *CharmdSuite) TestOkay(c *tc.C) {
 func (s *CharmdSuite) TestOkayNoNotices(c *tc.C) {
 	_, err := cli.ParserForTest().ParseArgs([]string{"okay"})
 	c.Assert(err, tc.ErrorMatches, "no notices.* have been listed.*")
+
 	c.Check(s.Stdout(), tc.Equals, "")
 	c.Check(s.Stderr(), tc.Equals, "")
 }

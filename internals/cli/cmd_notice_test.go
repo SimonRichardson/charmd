@@ -50,6 +50,7 @@ func (s *CharmdSuite) TestNoticeID(c *tc.C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notice", "123"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	c.Check(s.Stdout(), tc.Equals, `
 id: "123"
@@ -93,6 +94,7 @@ func (s *CharmdSuite) TestNoticeJSON(c *tc.C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notice", "--format", "json", "123"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	expected := `{"id":"123","user-id":1000,"type":"custom","key":"a.b/c",` +
 		`"first-occurred":"2023-09-05T17:18:00Z","last-occurred":"2023-09-05T19:18:00Z",` +
@@ -127,6 +129,7 @@ func (s *CharmdSuite) TestNoticeYAML(c *tc.C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notice", "--format", "yaml", "123"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	c.Check(s.Stdout(), tc.Equals, `
 id: "123"
@@ -166,6 +169,7 @@ func (s *CharmdSuite) TestNoticeIDNotFound(c *tc.C) {
 
 	_, err := cli.ParserForTest().ParseArgs([]string{"notice", "123"})
 	c.Assert(err, tc.ErrorMatches, `cannot find notice with ID "123"`)
+
 	c.Check(s.Stdout(), tc.Equals, "")
 	c.Check(s.Stderr(), tc.Equals, "")
 }
@@ -197,6 +201,7 @@ func (s *CharmdSuite) TestNoticeTypeKey(c *tc.C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notice", "custom", "a.b/c"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	c.Check(s.Stdout(), tc.Equals, `
 id: "123"
@@ -239,6 +244,7 @@ func (s *CharmdSuite) TestNoticeTypeKeyUID(c *tc.C) {
 
 	rest, err := cli.ParserForTest().ParseArgs([]string{"notice", "--uid", "1001", "custom", "a.b/c"})
 	c.Assert(err, tc.IsNil)
+
 	c.Check(rest, tc.HasLen, 0)
 	c.Check(s.Stdout(), tc.Equals, `
 id: "123"
@@ -270,6 +276,7 @@ func (s *CharmdSuite) TestNoticeTypeKeyNotFound(c *tc.C) {
 
 	_, err := cli.ParserForTest().ParseArgs([]string{"notice", "custom", "a.b/c"})
 	c.Assert(err, tc.ErrorMatches, `cannot find custom notice with key "a.b/c"`)
+
 	c.Check(s.Stdout(), tc.Equals, "")
 	c.Check(s.Stderr(), tc.Equals, "")
 }

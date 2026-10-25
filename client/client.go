@@ -107,6 +107,7 @@ type SocketNotFoundError struct {
 	Path string
 }
 
+// Error returns the error message for this failure.
 func (s SocketNotFoundError) Error() string {
 	if s.Path == "" && s.Err != nil {
 		return s.Err.Error()
@@ -114,10 +115,12 @@ func (s SocketNotFoundError) Error() string {
 	return fmt.Sprintf("socket %q not found", s.Path)
 }
 
+// Unwrap returns the underlying cause for error inspection.
 func (s SocketNotFoundError) Unwrap() error {
 	return s.Err
 }
 
+// unixDialer creates a dial function for the configured daemon socket.
 func unixDialer(socketPath string) func(context.Context, string, string) (net.Conn, error) {
 	return func(_ context.Context, _, _ string) (net.Conn, error) {
 		_, err := os.Stat(socketPath)
@@ -133,6 +136,7 @@ func unixDialer(socketPath string) func(context.Context, string, string) (net.Co
 }
 
 type doer interface {
+	// Do sends one HTTP request and returns its response.
 	Do(*http.Request) (*http.Response, error)
 }
 
@@ -209,6 +213,7 @@ type Client struct {
 	latestWarning time.Time
 }
 
+// New validates client configuration and creates the API requester.
 func New(config *Config) (*Client, error) {
 	// Let's not mutate the input config.
 	localConfig := Config{}
@@ -242,6 +247,7 @@ func New(config *Config) (*Client, error) {
 	return client, nil
 }
 
+// Requester returns the transport used to issue API requests.
 func (client *Client) Requester() Requester {
 	return client.requester
 }
@@ -265,6 +271,7 @@ func (client *Client) LatestWarningTime() time.Time {
 // RequestError is returned when there's an error processing the request.
 type RequestError struct{ error }
 
+// Error returns the error message for this failure.
 func (e RequestError) Error() string {
 	return fmt.Sprintf("cannot build request: %v", e.error)
 }
@@ -274,14 +281,17 @@ type ConnectionError struct {
 	error
 }
 
+// Error returns the error message for this failure.
 func (e ConnectionError) Error() string {
 	return fmt.Sprintf("cannot communicate with server: %v", e.error)
 }
 
+// Unwrap returns the underlying cause for error inspection.
 func (e ConnectionError) Unwrap() error {
 	return e.error
 }
 
+// dispatch builds and sends an HTTP request without modifying the base URL.
 func (rq *defaultRequester) dispatch(
 	ctx context.Context, method, urlpath string, query url.Values, headers map[string]string, body io.Reader,
 ) (*http.Response, error) {
@@ -431,6 +441,7 @@ func (rq *defaultRequester) Do(ctx context.Context, opts *RequestOptions) (*Requ
 	}, nil
 }
 
+// decodeInto decodes JSON and includes buffered response data in decode errors.
 func decodeInto(reader io.Reader, v any) error {
 	dec := json.NewDecoder(reader)
 	if err := dec.Decode(v); err != nil {
@@ -465,6 +476,7 @@ type Error struct {
 	StatusCode int
 }
 
+// Error returns the error message for this failure.
 func (e *Error) Error() string {
 	return e.Message
 }
@@ -495,6 +507,7 @@ func (rsp *response) err() error {
 	return &resultErr
 }
 
+// parseError extracts a structured API error from an HTTP response.
 func parseError(r *http.Response) error {
 	var rsp response
 	if r.Header.Get("Content-Type") != "application/json" {
@@ -523,6 +536,7 @@ type defaultRequester struct {
 	client        *Client
 }
 
+// newDefaultRequester validates connection settings and configures the HTTP transport.
 func newDefaultRequester(client *Client, opts *Config) (*defaultRequester, error) {
 	if opts == nil {
 		opts = &Config{}
@@ -632,6 +646,7 @@ func verifyConnection(state tls.ConnectionState, opts *Config) error {
 	return errors.New("cannot verify server: see TLS config options")
 }
 
+// Transport returns the HTTP transport used by this requester.
 func (rq *defaultRequester) Transport() *http.Transport {
 	return rq.transport
 }

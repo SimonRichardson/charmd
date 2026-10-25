@@ -64,6 +64,7 @@ func (d *Daemon) Stop() {
 	d.ready.Store(false)
 }
 
+// addRoutes installs health checks and the registered API endpoints.
 func (d *Daemon) addRoutes() {
 	d.router = http.NewServeMux()
 	d.router.HandleFunc("GET /health", d.health)
@@ -76,10 +77,12 @@ func (d *Daemon) addRoutes() {
 	d.router.Handle("/", NotFound("invalid API endpoint requested"))
 }
 
+// health reports that the daemon HTTP server is responding.
 func (d *Daemon) health(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// readiness reports whether the daemon is accepting work.
 func (d *Daemon) readiness(w http.ResponseWriter, _ *http.Request) {
 	if !d.ready.Load() {
 		w.WriteHeader(http.StatusServiceUnavailable)

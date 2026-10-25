@@ -55,6 +55,7 @@ type runtimePathSet struct {
 	state  string
 }
 
+// runtimePaths resolves daemon files beneath the configured runtime directory.
 func runtimePaths() runtimePathSet {
 	dir := defaultCharmdDir
 	if configuredDir := os.Getenv(charmdEnv); configuredDir != "" {
@@ -68,6 +69,7 @@ func runtimePaths() runtimePathSet {
 	}
 }
 
+// runDaemon starts the overlord and Unix HTTP server, then stops them on termination.
 func runDaemon(paths runtimePathSet) error {
 	runtimeConfig, err := config.Load(paths.config)
 	if err != nil {
@@ -131,6 +133,7 @@ var commands = map[string]*CmdInfo{}
 // AddCommand registers a command.
 func AddCommand(command *CmdInfo) { commands[command.Name] = command }
 
+// merge combines command argument descriptions, letting later maps replace earlier entries.
 func merge(maps ...map[string]string) map[string]string {
 	result := make(map[string]string)
 	for _, m := range maps {
@@ -147,6 +150,7 @@ type timeMixin struct {
 
 var timeArgsHelp = map[string]string{"--abs-time": "Display absolute times"}
 
+// fmtTime selects absolute or relative timestamp formatting.
 func (m timeMixin) fmtTime(t time.Time) string {
 	if m.AbsTime {
 		return t.Format(time.RFC3339)
@@ -161,6 +165,7 @@ type formatMixin struct {
 
 var formatArgsHelp = map[string]string{"--format": "Output format"}
 
+// formatNonText writes the requested JSON or YAML representation.
 func (m formatMixin) formatNonText(result any) error {
 	var data []byte
 	var err error
@@ -180,6 +185,7 @@ func (m formatMixin) formatNonText(result any) error {
 	return err
 }
 
+// tabWriter creates the tab-aligned writer used by CLI tables.
 func tabWriter() *tabwriter.Writer { return tabwriter.NewWriter(Stdout, 5, 3, 2, ' ', 0) }
 
 type cliState struct {
@@ -193,6 +199,7 @@ type fullCLIState struct {
 	Charmd map[string]*cliState `json:"charmd"`
 }
 
+// cliStatePath resolves the user-specific CLI state file.
 func cliStatePath() string {
 	configDir := os.Getenv("XDG_CONFIG_HOME")
 	if configDir == "" {
@@ -201,6 +208,7 @@ func cliStatePath() string {
 	return filepath.Join(configDir, "charmd", "cli.json")
 }
 
+// loadFullCLIState reads persisted CLI preferences, defaulting to empty state when absent.
 func loadFullCLIState() (*fullCLIState, error) {
 	data, err := os.ReadFile(cliStatePath())
 	if errors.Is(err, os.ErrNotExist) {
@@ -219,6 +227,7 @@ func loadFullCLIState() (*fullCLIState, error) {
 	return &state, nil
 }
 
+// loadCLIState returns persisted CLI state for one daemon socket.
 func loadCLIState(socket string) (*cliState, error) {
 	state, err := loadFullCLIState()
 	if err != nil {
@@ -230,6 +239,7 @@ func loadCLIState(socket string) (*cliState, error) {
 	return &cliState{}, nil
 }
 
+// saveCLIState updates the persisted CLI state for one daemon socket.
 func saveCLIState(socket string, state *cliState) error {
 	all, err := loadFullCLIState()
 	if err != nil {

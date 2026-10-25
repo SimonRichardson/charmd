@@ -39,8 +39,11 @@ type Logger interface {
 
 type nullLogger struct{}
 
+// Notice discards notice messages for the null logger.
 func (nullLogger) Notice(string) {}
-func (nullLogger) Debug(string)  {}
+
+// Debug discards debug messages for the null logger.
+func (nullLogger) Debug(string) {}
 
 // NullLogger is a logger that does nothing
 var NullLogger = nullLogger{}
@@ -85,6 +88,7 @@ func SecurityCritical(event SecurityEvent, arg, description string) {
 	securityEvent("CRITICAL", event, arg, description)
 }
 
+// securityEvent formats and emits a structured security log event.
 func securityEvent(level string, event SecurityEvent, arg, description string) {
 	loggerLock.Lock()
 	defer loggerLock.Unlock()
@@ -145,12 +149,14 @@ type lockedBytesBuffer struct {
 	mutex  sync.Mutex
 }
 
+// Write appends bytes while holding the buffer lock.
 func (b *lockedBytesBuffer) Write(p []byte) (int, error) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	return b.buffer.Write(p)
 }
 
+// String returns the buffered log text under the buffer lock.
 func (b *lockedBytesBuffer) String() string {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()

@@ -32,6 +32,7 @@ var Contains tc.Checker = &containsChecker{
 	&tc.CheckerInfo{Name: "Contains", Params: []string{"container", "elem"}},
 }
 
+// commonEquals checks element compatibility and handles string containment before container-specific checks.
 func commonEquals(container, elem any, result *bool, error *string) bool {
 	containerV := reflect.ValueOf(container)
 	elemV := reflect.ValueOf(elem)
@@ -71,6 +72,7 @@ func commonEquals(container, elem any, result *bool, error *string) bool {
 	return false
 }
 
+// Check evaluates the checker against the supplied values and returns a diagnostic on failure.
 func (c *containsChecker) Check(params []any, names []string) (result bool, error string) {
 	defer func() {
 		if v := recover(); v != nil {
@@ -117,6 +119,7 @@ var DeepContains tc.Checker = &deepContainsChecker{
 	&tc.CheckerInfo{Name: "DeepContains", Params: []string{"container", "elem"}},
 }
 
+// Check evaluates the checker against the supplied values and returns a diagnostic on failure.
 func (c *deepContainsChecker) Check(params []any, names []string) (result bool, error string) {
 	var container any = params[0]
 	var elem any = params[1]
@@ -157,6 +160,7 @@ var DeepUnsortedMatches tc.Checker = &deepUnsortedMatchChecker{
 	&tc.CheckerInfo{Name: "DeepUnsortedMatches", Params: []string{"container1", "container2"}},
 }
 
+// Check evaluates the checker against the supplied values and returns a diagnostic on failure.
 func (c *deepUnsortedMatchChecker) Check(params []any, _ []string) (bool, string) {
 	container1 := reflect.ValueOf(params[0])
 	container2 := reflect.ValueOf(params[1])
@@ -184,6 +188,7 @@ func (c *deepUnsortedMatchChecker) Check(params []any, _ []string) (bool, string
 	}
 }
 
+// deepMapMatch compares map contents recursively without depending on iteration order.
 func deepMapMatch(container1, container2 reflect.Value) (bool, string) {
 	if valid, output := validateContainerTypesAndLengths(container1, container2); !valid {
 		return false, output
@@ -225,6 +230,7 @@ func deepMapMatch(container1, container2 reflect.Value) (bool, string) {
 	return true, ""
 }
 
+// deepSequenceMatch compares sequence contents without depending on element order.
 func deepSequenceMatch(container1, container2 reflect.Value) (bool, string) {
 	if valid, output := validateContainerTypesAndLengths(container1, container2); !valid {
 		return false, output
@@ -252,6 +258,7 @@ out:
 	return true, ""
 }
 
+// validateContainerTypesAndLengths rejects containers with incompatible kinds, types, or lengths.
 func validateContainerTypesAndLengths(container1, container2 reflect.Value) (bool, string) {
 	if container1.Len() != container2.Len() {
 		return false, fmt.Sprintf("containers have different lengths: %d != %d", container1.Len(), container2.Len())

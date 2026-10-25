@@ -40,6 +40,7 @@ type addedNotice struct {
 	ID string `json:"id"`
 }
 
+// v1GetNotices returns notices visible to the caller, optionally waiting for new notices.
 func v1GetNotices(c *Command, r *http.Request) Response {
 	user := requestUser(r)
 	// TODO(benhoyt): the design of notices presumes UIDs; if in future when we
@@ -177,6 +178,7 @@ func sanitizeTypesFilter(queryTypes []string) ([]state.NoticeType, error) {
 	return types, nil
 }
 
+// v1PostNotices validates and records a notice for the authenticated caller.
 func v1PostNotices(c *Command, r *http.Request) Response {
 	user := requestUser(r)
 	if user == nil || user.UID == nil {
@@ -239,6 +241,7 @@ func v1PostNotices(c *Command, r *http.Request) Response {
 	return SyncResponse(addedNotice{ID: noticeId})
 }
 
+// v1GetNotice returns one notice after checking visibility for the caller.
 func v1GetNotice(c *Command, r *http.Request) Response {
 	user := requestUser(r)
 	if user == nil || user.UID == nil {
@@ -258,6 +261,7 @@ func v1GetNotice(c *Command, r *http.Request) Response {
 	return SyncResponse(notice)
 }
 
+// noticeViewableByUser checks whether a notice is public or belongs to the caller.
 func noticeViewableByUser(notice *state.Notice, user *UserState) bool {
 	userID, isSet := notice.UserID()
 	if !isSet {

@@ -247,6 +247,7 @@ func (client *Client) WaitNotices(
 	return jsonNoticesToNotices(jns), err
 }
 
+// makeNoticesQuery encodes the supplied notice filters as URL query parameters.
 func makeNoticesQuery(opts *NoticesOptions) url.Values {
 	query := make(url.Values)
 	if opts == nil {
@@ -270,6 +271,7 @@ func makeNoticesQuery(opts *NoticesOptions) url.Values {
 	return query
 }
 
+// jsonNoticesToNotices converts wire notices into client notice values.
 func jsonNoticesToNotices(jns []*jsonNotice) []*Notice {
 	ns := make([]*Notice, len(jns))
 	for i, jn := range jns {
@@ -278,6 +280,7 @@ func jsonNoticesToNotices(jns []*jsonNotice) []*Notice {
 	return ns
 }
 
+// jsonNoticeToNotice converts a wire notice into a client notice value.
 func jsonNoticeToNotice(jn *jsonNotice) *Notice {
 	n := &jn.Notice
 	n.ExpireAfter, _ = time.ParseDuration(jn.ExpireAfter)

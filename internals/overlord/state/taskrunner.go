@@ -37,6 +37,7 @@ type Retry struct {
 	Reason string
 }
 
+// Error returns the error message for this failure.
 func (r *Retry) Error() string {
 	return "task should be retried"
 }
@@ -54,6 +55,7 @@ type Wait struct {
 	WaitedStatus Status
 }
 
+// Error returns the error message for this failure.
 func (r *Wait) Error() string {
 	return "task set to wait, manual action required"
 }
@@ -120,6 +122,7 @@ func (r *TaskRunner) AddOptionalHandler(match func(t *Task) bool, do, undo Handl
 	r.optional = append(r.optional, optionalHandler{match, handlerPair{do, undo}})
 }
 
+// handlerPair finds explicit handlers first, then tries optional task-kind matchers.
 func (r *TaskRunner) handlerPair(t *Task) handlerPair {
 	if handler, ok := r.handlers[t.Kind()]; ok {
 		return handler
@@ -306,6 +309,7 @@ func (r *TaskRunner) run(t *Task) {
 	})
 }
 
+// clean starts task cleanup after its change settles and records successful completion.
 func (r *TaskRunner) clean(t *Task) {
 	if !t.Change().IsReady() {
 		// Whole Change is not ready so don't run cleanups yet.
@@ -340,6 +344,7 @@ func (r *TaskRunner) clean(t *Task) {
 	})
 }
 
+// abortLanes requests lane rollback, cancels running handlers, and schedules an ensure pass.
 func (r *TaskRunner) abortLanes(chg *Change, lanes []int) {
 	chg.AbortLanes(lanes)
 	ensureScheduled := false
